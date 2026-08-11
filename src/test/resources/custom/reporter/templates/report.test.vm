@@ -1,0 +1,583 @@
+#macro( stepActions $localStep $directCall)
+    #if (!$directCall)
+        #set ($localStepException = $localStep.getActionExceptionMessage())
+        #if ($localStep.getFailed() && $localStepException)
+        <li class="header-failed step-header">$localStep.getName()<br/>$localStep.getActionExceptionMessage()</li>
+        #else
+        <li class="step-header">
+            <div class="message-conf">
+                $localStep.getName()
+            </div>
+        </li>
+        #end
+    #end
+<ul class="step-children">
+    #foreach( $action in $localStep.getStepActions() )
+        #set ($timestamp = $action.getTimestamp().toLocalTime())
+        #if (${action.class.name.equals("com.seleniumtests.reporter.logger.TestStep")})
+            #stepActions($action false)
+        #elseif (${action.class.name.equals("com.seleniumtests.reporter.logger.TestMessage")} || ${action.class.name.equals("com.seleniumtests.reporter.logger.Check")})
+            #set ($messageType = $action.getMessageType().toString().toLowerCase())
+            #set ($messageType = "message-" + $messageType)
+            <div class="$messageType message-conf"><span
+                    class="stepTimestamp mr-1">$timestamp</span> $action.getName()
+            </div>
+            #set ($messageType = "")
+        #elseif (${action.class.name.equals("com.seleniumtests.reporter.logger.TestValue")})
+            <table class="table table-bordered table-sm">
+                <tr>
+                    <th width="15%">Key</th>
+                    <th width="60%">Message</th>
+                    <th width="25%">Value</th>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="message-conf">
+                            <span class="stepTimestamp mr-1">$timestamp</span> $action.getName()
+                        </div>
+                    </td>
+                    <td>$action.getMessage()</td>
+                    <td>$action.getValue()</td>
+                </tr>
+            </table>
+        #else
+            #set ($actionType = $action.getAction())
+            #if (!$actionType)
+                #set ($actionType = "")
+            #end
+            #set ($actionTypeLower = $actionType.toLowerCase())
+            #if ($actionTypeLower.contains("click"))
+                #set ($iconClass = "action-click") #set ($iconTag = "fa-mouse-pointer") #set ($verb = "Clic")
+            #elseif ($actionTypeLower.contains("sendkeys"))
+                #set ($iconClass = "action-sendkeys") #set ($iconTag = "fa-keyboard") #set ($verb = "Saisie")
+            #elseif ($actionTypeLower.contains("clear"))
+                #set ($iconClass = "action-clear") #set ($iconTag = "fa-eraser") #set ($verb = "Effacé")
+            #elseif ($actionTypeLower.contains("isdisplayed") || $actionTypeLower.contains("ispresent"))
+                #set ($iconClass = "action-check") #set ($iconTag = "fa-eye") #set ($verb = "Vérification")
+            #elseif ($actionTypeLower.contains("gettext"))
+                #set ($iconClass = "action-read") #set ($iconTag = "fa-align-left") #set ($verb = "Lecture")
+            #elseif ($actionTypeLower.contains("select"))
+                #set ($iconClass = "action-select") #set ($iconTag = "fa-caret-square-down") #set ($verb = "Sélection")
+            #else
+                #set ($iconClass = "action-default") #set ($iconTag = "fa-circle") #set ($verb = $actionType)
+            #end
+            #set ($elementLabel = "")
+            #if ($action.getElement())
+                #set ($elementLabel = $action.getElement().getName())
+            #end
+            #if ($action.getFailed())
+                <li class="header-failed action-item">
+                    <span class="action-icon action-error"><i class="fas fa-times-circle"></i></span>
+                    <span class="stepTimestamp mr-1">$timestamp</span>
+                    #if ($elementLabel && $elementLabel != "")
+                        <span class="action-type">$verb</span> sur <span class="action-element">$elementLabel</span>
+                    #else
+                        <span class="action-detail">$action.getName()</span>
+                    #end
+                    <span class="action-error-msg"> — $action.getActionExceptionMessage()</span>
+                </li>
+            #else
+                <li class="action-item">
+                    <span class="action-icon $iconClass"><i class="fas $iconTag"></i></span>
+                    <span class="stepTimestamp mr-1">$timestamp</span>
+                    #if ($elementLabel && $elementLabel != "")
+                        <span class="action-type">$verb</span> sur <span class="action-element">$elementLabel</span>
+                    #else
+                        <span class="action-detail">$action.getName()</span>
+                    #end
+                </li>
+            #end
+        #end
+    #end
+    <div class="row">
+        #foreach( $snapshot in $localStep.getSnapshots() )
+            #set($snapshotLog = $snapshot.buildScreenshotLog())
+            #set($displaySnapshot = $snapshot.isDisplayInReport())
+            #if ($displaySnapshot)
+                <div class="message-snapshot col">$snapshotLog</div>
+            #end
+        #end
+    </div>
+
+    #foreach( $file in $localStep.getFiles() )
+        #set($log = $file.buildLog())
+        <div class="message-snapshot">$log</div>
+    #end
+    #foreach( $har in $localStep.getHarCaptures() )
+        #set($harLog = $har.buildHarLog())
+        <div class="message-har">$harLog</div>
+    #end
+</ul>
+#end
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8"/>
+
+    <title>SeleniumRobot</title>
+
+    #if ($localResources)
+        #parse("reporter/templates/html.head.local.vm")
+        <script src="resources/iframeResizer.min.js"></script>
+        <script src="https://kit.fontawesome.com/327b2435a4.js" crossorigin="anonymous"></script>
+
+    #else
+        #parse("reporter/templates/html.head.remote.vm")
+        <script src="https://cdn.jsdelivr.net/npm/iframe-resizer@4.2.10/js/iframeResizer.min.js"></script>
+    #end
+
+    <script src="resources/app.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="resources/seleniumRobot_solo.css">
+    <style>
+        /* ============================================================
+           Design tokens - a garder identiques dans report.part.suiteSummary.vm
+           Sujet: rapport d'execution de tests automatises -> lecture
+           "instrumentation" : mono pour les donnees/statuts, sans pour le texte.
+           ============================================================ */
+        :root {
+            --sr-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --sr-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+
+            --sr-space-1: 4px;  --sr-space-2: 8px;  --sr-space-3: 12px;
+            --sr-space-4: 16px; --sr-space-5: 24px; --sr-space-6: 32px;
+
+            --sr-radius: 10px;
+            --sr-radius-sm: 6px;
+
+            --sr-ink: #0b1220;
+            --sr-ink-muted: #5b6472;
+            --sr-ink-faint: #8b93a1;
+            --sr-border: #e3e6ea;
+            --sr-surface: #ffffff;
+            --sr-bg: #f5f6f8;
+
+            --sr-navy: #12283a;
+            --sr-navy-ink: #e8edf2;
+            --sr-navy-ink-muted: #9fb0bd;
+            --sr-navy-border: #24425a;
+            --sr-accent: #c98a2c;
+
+            --sr-success: #1a7f4b; --sr-success-bg: #e9f7ef;
+            --sr-danger:  #c23b34; --sr-danger-bg:  #fbeae9;
+            --sr-warning: #b7791f; --sr-warning-bg: #fdf3e2;
+            --sr-neutral: #5b6472; --sr-neutral-bg: #eef0f2;
+        }
+        /* Dark mode desactive volontairement: le rapport doit toujours s'afficher en clair,
+           peu importe le systeme du lecteur. */
+
+        body {
+            font-family: var(--sr-font-sans);
+            background: var(--sr-bg);
+            color: var(--sr-ink);
+            -webkit-font-smoothing: antialiased;
+        }
+        .message-conf, .action-item, .step-header, .details-table {
+            font-family: var(--sr-font-sans);
+        }
+
+        /* ============================================================
+           Navbar - chrome d'application, persistant : identite + contexte
+           equipe. Separee de la carte de statut (qui, elle, porte le
+           resultat du test). AdminLTE n'a pas de sidebar ici, donc navbar
+           simple pleine largeur plutot que le layout complet.
+           ============================================================ */
+        .app-nav {
+            background: var(--sr-navy);
+            border-bottom: 1px solid var(--sr-navy-border);
+            padding: var(--sr-space-3) var(--sr-space-6);
+        }
+        .app-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: var(--sr-space-4); flex-wrap: wrap; }
+        .app-nav-brand { display: flex; align-items: center; gap: var(--sr-space-2); font-size: 14px; font-weight: 600; color: var(--sr-navy-ink); }
+        .app-nav-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--sr-accent); flex-shrink: 0; }
+        .app-nav-sep { color: var(--sr-navy-ink-muted); font-weight: 400; }
+        .app-nav-product { color: var(--sr-navy-ink-muted); font-weight: 400; }
+        .app-nav-meta { display: flex; align-items: center; gap: var(--sr-space-3); font-family: var(--sr-font-mono); font-size: 12px; color: var(--sr-navy-ink-muted); }
+        .app-nav-meta i { color: var(--sr-navy-ink-muted); margin-right: var(--sr-space-1); }
+        .app-nav-team { color: var(--sr-navy-ink); }
+
+        /* ============================================================
+           Carte de statut - compacte, pas un hero plein cadre : c'est un
+           outil de diagnostic, pas une page d'accueil.
+           ============================================================ */
+        /* AdminLTE force .main-header a max-height:100px + font cursive "Lobster Two" - notre
+           carte a plus de contenu (pastille + titre), et doit rester en police normale.
+           Override explicite necessaire, sinon le titre est invisible (cache sous la box
+           suivante) et le texte s'affiche dans une police cursive illisible. */
+        .report-hero {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            line-height: normal !important;
+            font-family: var(--sr-font-sans) !important;
+            background: var(--sr-surface);
+            border: 1px solid var(--sr-border);
+            border-left: 4px solid var(--sr-neutral);
+            border-radius: var(--sr-radius);
+            padding: var(--sr-space-4) var(--sr-space-6);
+            margin: var(--sr-space-5) var(--sr-space-6) 0;
+            text-align: left;
+        }
+        .report-hero * { font-family: var(--sr-font-sans) !important; }
+        .report-hero.status-success { border-left-color: var(--sr-success); }
+        .report-hero.status-failed  { border-left-color: var(--sr-danger); }
+        .report-hero.status-skipped { border-left-color: var(--sr-neutral); }
+
+        .report-hero-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sr-space-4); }
+        .report-hero-left { display: flex; align-items: center; gap: var(--sr-space-4); }
+
+        .status-pill {
+            display: inline-flex; align-items: center; gap: var(--sr-space-2);
+            width: fit-content;
+            padding: var(--sr-space-2) var(--sr-space-4);
+            border-radius: var(--sr-radius-sm);
+            font-family: var(--sr-font-mono) !important;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.05em; text-transform: uppercase;
+        }
+        .status-pill i { font-size: 11px; }
+        .status-pill.status-success { color: #ffffff; background: var(--sr-success); }
+        .status-pill.status-failed  { color: #ffffff; background: var(--sr-danger); }
+        .status-pill.status-skipped { color: #ffffff; background: var(--sr-neutral); }
+
+        .report-hero-title { font-size: 18px; font-weight: 700; color: var(--sr-ink); letter-spacing: -0.01em; text-wrap: balance; }
+
+        /* ============================================================
+           Contenu (details + steps) - meme rythme d'espacement que la carte
+           ============================================================ */
+        .container-fluid > section.content { padding: 0 var(--sr-space-2) var(--sr-space-6); }
+
+        h4 { font-size: 13px; font-weight: 700; color: var(--sr-ink-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: var(--sr-space-5) 0 var(--sr-space-3); }
+
+        /* --- Tableau de details : lignes fines, pas de grille lourde --- */
+        .details-table { border: none !important; }
+        .details-table tr { border-bottom: 1px solid var(--sr-border); }
+        .details-table tr:last-child { border-bottom: none; }
+        .details-table th, .details-table td { border: none !important; padding: var(--sr-space-3) var(--sr-space-2) !important; }
+        .details-table th {
+            width: 200px;
+            background: transparent;
+            font-size: 11px; font-weight: 700; color: var(--sr-ink-muted);
+            text-transform: uppercase; letter-spacing: 0.04em;
+            vertical-align: top;
+        }
+        .details-table th i { width: 14px; color: var(--sr-ink-faint); margin-right: var(--sr-space-2); }
+        .details-table td { font-size: 14px; color: var(--sr-ink); }
+
+        /* --- Steps (boxes AdminLTE) : meme langage visuel que la carte de statut (accent a gauche) --- */
+        .box {
+            border-radius: var(--sr-radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--sr-border);
+            border-left: 3px solid var(--sr-neutral);
+            background: var(--sr-surface);
+            box-shadow: none;
+        }
+        .box.success { border-left-color: var(--sr-success); }
+        .box.failed  { border-left-color: var(--sr-danger); }
+        .box.warning { border-left-color: var(--sr-warning); }
+        .box.skipped { border-left-color: var(--sr-neutral); }
+        .box-header { background: var(--sr-surface); }
+        .step-title { font-size: 13px; font-weight: 600; color: var(--sr-ink); font-family: var(--sr-font-mono); }
+
+        .step-children {
+            list-style: none;
+            border-left: 2px solid var(--sr-border);
+            margin-left: 10px;
+            padding-left: var(--sr-space-4);
+        }
+        .step-header {
+            font-weight: 600;
+            color: var(--sr-ink);
+            margin-top: var(--sr-space-3);
+        }
+        .action-item { display: flex; align-items: baseline; gap: var(--sr-space-2); padding: 2px 0; font-size: 13px; }
+        .action-icon { width: 16px; text-align: center; flex-shrink: 0; }
+        .action-icon.action-click { color: #3468a8; }
+        .action-icon.action-sendkeys { color: var(--sr-success); }
+        .action-icon.action-clear { color: var(--sr-warning); }
+        .action-icon.action-check { color: #7a5ea8; }
+        .action-icon.action-read { color: #2b7d8c; }
+        .action-icon.action-select { color: #4d569c; }
+        .action-icon.action-error { color: var(--sr-danger); }
+        .action-icon.action-default { color: var(--sr-ink-faint); }
+        .action-type { font-weight: 600; color: var(--sr-ink); }
+        .action-element { font-weight: 600; color: var(--sr-ink); }
+        .action-detail { color: var(--sr-ink-faint); font-size: 0.85em; }
+        .action-error-msg { color: var(--sr-danger); font-size: 0.85em; }
+        .action-item .stepTimestamp {
+            display: none;
+            color: var(--sr-ink-faint);
+            font-size: 0.75em;
+            font-family: var(--sr-font-mono);
+        }
+        .action-item:hover .stepTimestamp { display: inline; }
+        .message-snapshot img {
+            max-width: 160px;
+            max-height: 110px;
+            object-fit: cover;
+            border: 1px solid var(--sr-border);
+            border-radius: var(--sr-radius-sm);
+            cursor: zoom-in;
+            transition: max-width 0.15s, max-height 0.15s;
+        }
+        .message-snapshot img:hover {
+            max-width: 900px;
+            max-height: 700px;
+            cursor: zoom-out;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 8px 30px rgba(11,18,32,0.25);
+        }
+    </style>
+</head>
+
+<div>
+    <nav class="app-nav">
+        <div class="app-nav-inner">
+            <div class="app-nav-brand">
+                <span class="app-nav-dot"></span>
+                SeleniumRobot <span class="app-nav-sep">/</span> <span class="app-nav-product">Reports</span>
+            </div>
+            <div class="app-nav-meta">
+                #if ($testInfos && $testInfos.get("Equipe"))
+                    <span><i class="fas fa-users"></i><span class="app-nav-team">$testInfos.get("Equipe")</span></span>
+                #end
+            </div>
+        </div>
+    </nav>
+    <div class="wrapper">
+    #if ($header == "passed")
+        #set($heroStatusClass = "status-success") #set($heroIcon = "fa-check") #set($heroLabel = "Succès")
+    #elseif ($header == "failed")
+        #set($heroStatusClass = "status-failed") #set($heroIcon = "fa-xmark") #set($heroLabel = "Échec")
+    #else
+        #set($heroStatusClass = "status-skipped") #set($heroIcon = "fa-minus") #set($heroLabel = "Ignoré")
+    #end
+        <header class="main-header report-hero $heroStatusClass">
+            <div class="report-hero-row">
+                <div class="report-hero-left">
+                    <span class="status-pill $heroStatusClass"><i class="fas $heroIcon"></i> $heroLabel</span>
+                    <div class="report-hero-title">$testName</div>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <div id="tabs" #if ($snapshots)style="display: block;" #else style="display: none;" #end>
+        <ul class="nav nav-tabs" id="tab" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="result-tab" data-toggle="tab" href="#results" role="tab"
+                   aria-controls="home"
+                   aria-selected="true">Results</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link #if ($snapshotComparisonResult && $snapshotComparisonResult == 1) tab-success #elseif(($snapshotComparisonResult && $snapshotComparisonResult == 3)) tab-skipped #else tab-failed #end"
+                   id="snapshot-tab" data-toggle="tab" href="#snapshots" role="tab" aria-controls="profile"
+                   aria-selected="false">Snapshots</a>
+            </li>
+        </ul>
+    </div>
+    <div class="tab-content" id="myTabContent">
+
+        <!-- Modal for displaying pictures -->
+        <div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+             aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span
+                                aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <img src="" id="imagepreview" style="width: 80%;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade show active" id="results" role="tabpanel" aria-labelledby="result-tab">
+
+            <div class="container-fluid">
+                <section class="content">
+                    <div class="row">
+                        <div class="col-xl-12">
+                            <h4> Test Details - $testName</h4>
+                            <btn id="timestampAction" class="btn" style="position: fixed;left: 4rem;top: 10rem;"><i
+                                    class="fa-solid fa-stopwatch-20" style="font-size: 40px;"></i></btn>
+                            <table class="table table-bordered table-sm details-table">
+                                #if ($description && !$description.isEmpty())
+                                    <tr>
+                                        <th><i class="fas fa-align-left"></i>Description</th>
+                                        <td>$description</td>
+                                    </tr>
+                                #end
+                                #if ($resultUrl && !$resultUrl.isEmpty())
+                                    <tr>
+                                        <th><i class="fas fa-link"></i>Result server Url</th>
+                                        <td><a href="$resultUrl">Online result</a></td>
+                                    </tr>
+                                #end
+                                #if ($applicationType && !$applicationType.isEmpty())
+                                    <tr>
+                                        <th><i class="fas fa-tag"></i>Application type</th>
+                                        <td>$applicationType</td>
+                                    </tr>
+                                    <tr>
+                                        <th><i class="fas fa-globe"></i>Application</th>
+                                        <td>$application</td>
+                                    </tr>
+                                #end
+                                #if ($gridnode)
+                                    <tr>
+                                        <th><i class="fas fa-server"></i>Grid node</th>
+                                        <td>$gridnode</td>
+                                    </tr>
+                                #end
+                                #if ($testInfos)
+                                    #foreach ($testInfo in $testInfos.entrySet())
+                                        #if ($testInfo.key != "Equipe")
+                                            <tr>
+                                                <th><i class="fas fa-info-circle"></i>$testInfo.key</th>
+                                                <td>$testInfo.value</td>
+                                            </tr>
+                                        #end
+                                    #end
+                                #end
+                            </table>
+
+                            <!-- All test steps -->
+                            #foreach ($step in $steps)
+                                #set ($stepName = $step.get(0))
+                                #set ($stepStatus = $step.get(1))
+                                #set ($stepDuration = $step.get(2))
+                                #set ($stepObject = $step.get(3))
+                                #set ($stepErrorCause = $step.get(4))
+                                #set ($stepErrorCauseDetails = $step.get(5))
+                                #set ($stepVideoTimeStamp = $step.get(6))
+
+                                #if (!$stepName.startsWith("openPage"))
+                                #if ($stepStatus.toString().equals("passed"))
+                                <div class="box collapsed-box success">
+                                #elseif ($stepStatus.toString().equals("failed"))
+                                <div class="box collapsed-box failed">
+                                #elseif ($stepStatus.toString().equals("warning"))
+                                <div class="box collapsed-box warning">
+                                #else
+                                <div class="box collapsed-box skipped">
+                                #end
+                                <div class="box-header with-border">
+                                    <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fas fa-plus"></i></button>
+                                    <span class="step-title"> $stepName - $stepDuration secs</span>
+                                    #if ($stepVideoTimeStamp)
+                                        <span><i class="fas fa-file-video"></i>$stepVideoTimeStamp s</span>
+                                    #end
+                                </div>
+                                <div class="box-body">
+                                    #if ($stepErrorCause)
+                                        <div class="step-info">
+                                            <i class="fas fa-info-circle"></i><span>Possibly caused by $stepErrorCause: $stepErrorCauseDetails</span>
+                                        </div>
+                                    #end
+                                    #stepActions($stepObject true)
+
+                                    #if($stepObject.getActionException())
+                                        <div class="message-error">
+                                            #set($exceptionMessage = $stepObject.getActionExceptionMessage())
+												$exceptionMessage
+                                        </div>
+                                    #end
+                                </div>
+                            </div>
+                            #end
+                            #end
+
+                            <!-- logs -->
+                            #if ($status.toString().equals("passed"))
+                            <div class="box collapsed-box success">
+                            #elseif ($status.toString().equals("failed"))
+                            <div class="box collapsed-box failed">
+                            #else
+                            <div class="box collapsed-box skipped">
+                            #end
+                            <div class="box-header with-border">
+                                <button type="button" class="btn btn-box-tool" data-widget="collapse"><i
+                                        class="fas fa-plus"></i></button>
+                                Execution logs
+                            </div>
+                            <div class="box-body logs">
+                                #if ($stacktrace)
+                                    <div class="message-error">
+                                        #set ($lineIdx = 0)
+                                        #foreach($line in $stacktrace)
+                                            #if ($lineIdx == 0)
+                                                <div>$line</div>
+                                            #else
+                                                <div class="stack-element">$line</div>
+                                            #end
+                                            #set ($lineIdx = $lineIdx + 1)
+                                        #end
+                                    </div>
+                                #end
+                                <br/>
+                                #foreach($line in $logs)
+                                    <div>$line</div>
+                                #end
+                            </div>
+                        </div>
+                        </div>
+                        </div>
+                </section>
+            </div>
+        </div>
+        #if ($snapshots)
+            <div class="tab-pane fade" id="snapshots" role="tabpanel" aria-labelledby="snapshot-tab">
+                <div class="container-fluid">
+                    <section class="content">
+                        <div class="row">
+                            <div class="col-xl-12">
+                                <iframe src="${snapshotServer}/snapshot/compare/stepList/${snapshotSessionId}/?header=true"
+                                        id="snapshot-iframe" frameborder="0"></iframe>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        #end
+    </div>
+</div>
+
+<script>
+    // activate popover
+    $('[data-toggle="popover"]').popover();
+</script>
+<script>
+    var elements = document.getElementsByClassName("stepTimestamp");
+
+    function toggleTimestamps() {
+        for (var i = 0; i < elements.length; i++) {
+            var element = elements[i];
+            if (element.style.display === "none") {
+                element.style.display = "block";
+            } else {
+                element.style.display = "none";
+            }
+        }
+    }
+
+    document.getElementById("timestampAction").addEventListener("click", toggleTimestamps);
+</script>
+
+    #if ($snapshots)
+    <script>
+        const frames = iFrameResize({log: true, autoResize: false}, '#snapshot-iframe')
+        $('#snapshot-tab').on('shown.bs.tab', function (e) {
+            console.log("resizing iframe");
+            frames[0].iFrameResizer.resize();
+            frames[0].iFrameResizer.sendMessage("resize");
+        })
+    </script>
+    #end
+</body>
+</html>

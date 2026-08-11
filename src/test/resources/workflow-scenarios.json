@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Scenario Ecommerce Electronics",
+    "chain": "ecommerce.full,electronics.full"
+  },
+  {
+    "name": "Scenario Bancaire RH",
+    "chain": "banking.full,hr.full"
+  }
+]

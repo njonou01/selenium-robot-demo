@@ -1,0 +1,57 @@
+[
+  {
+    "name": "Scenario Assurance Auto",
+    "chain": [
+      "customer.identification",
+      "vehicle.registration",
+      "quote.calculation",
+      "policy.creation",
+      "claim.declaration",
+      "damage.assessment",
+      "claim.settlement"
+    ]
+  },
+  {
+    "name": "Scenario Assurance Habitation",
+    "chain": [
+      "property.declaration",
+      "risk.analysis",
+      "policy.creation",
+      "incident.declaration",
+      "expertise"
+    ]
+  },
+  {
+    "name": "Scenario Assurance Sante",
+    "chain": [
+      "customer.identification",
+      "coverage.check",
+      "medical.claim",
+      "reimbursement.payment"
+    ]
+  },
+  {
+    "name": "Scenario Assurance Voyage",
+    "chain": [
+      "trip.registration",
+      "coverage.selection",
+      "policy.creation",
+      "incident.declaration",
+      "document.upload",
+      "claim.validation"
+    ]
+  },
+  {
+    "name": "Scenario Assurance Entreprise",
+    "chain": [
+      "company.registration",
+      "risk.assessment",
+      "quote.creation",
+      "policy.creation",
+      "claim.declaration",
+      "expertise",
+      "claim.validation",
+      "claim.settlement"
+    ]
+  }
+]

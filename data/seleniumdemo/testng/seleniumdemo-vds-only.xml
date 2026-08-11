@@ -1,0 +1,17 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="seleniumdemo test suite (variable driven scenario only)" parallel="none" verbose="1" thread-count="1">
+    <parameter name="browser" value="chrome" />
+    <parameter name="headless" value="false" />
+    <parameter name="seleniumRobotServerUrl" value="http://localhost:8000" />
+    <parameter name="seleniumRobotServerActive" value="true" />
+    <!-- seleniumRobotServerToken retire d'ici: vient de la variable d'env SELENIUM_ROBOT_SERVER_TOKEN -->
+    <parameter name="testRetryCount" value="0" />
+    <parameter name="equipe" value="Selenium Demo" />
+    <listeners>
+        <listener class-name="com.example.seleniumdemo.reporting.CustomReportListener" />
+        <listener class-name="com.example.seleniumdemo.reporting.TeamInfoListener" />
+    </listeners>
+    <test name="VariableDrivenScenario">
+        <classes><class name="com.example.seleniumdemo.tests.VariableDrivenScenarioTest" /></classes>
+    </test>
+</suite>
