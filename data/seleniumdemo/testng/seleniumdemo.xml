@@ -34,6 +34,16 @@
 	</test>
 
 	<test name="Documentation">
+		<!-- champs a afficher dans le catalogue, dans l'ordre, separes par virgule.
+		     valeurs possibles: code, name, method, description, class -->
+		<parameter name="catalogueFields" value="code,name,method,description,class" />
+		<!-- sheets = 1 seul fichier xlsx, 1 onglet par classe Workflow (nom sans "Workflow").
+		     blocks = 1 seul fichier xlsx, 1 seule feuille, 1 bloc de colonnes par classe, empiles verticalement.
+		     json = 1 fichier json, 1 objet par classe Workflow ("class"+"workflows").
+		     matrix = 1 seul fichier xlsx, 1 ligne par code, classe fusionnee verticalement. -->
+		<parameter name="catalogueLayout" value="sheets" />
+		<!-- retire les "${xxx}" (placeholders runtime) du champ "name" affiche -->
+		<parameter name="catalogueStripPlaceholders" value="true" />
 		<classes>
 			<class name="com.example.seleniumdemo.tests.WorkflowCatalogueGenerator" />
 		</classes>

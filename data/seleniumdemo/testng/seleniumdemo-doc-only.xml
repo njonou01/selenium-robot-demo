@@ -12,6 +12,9 @@
         <listener class-name="com.example.seleniumdemo.reporting.TeamInfoListener" />
     </listeners>
     <test name="Documentation">
+        <parameter name="catalogueFields" value="code,name,method,description,class" />
+        <parameter name="catalogueLayout" value="matrix" />
+        <parameter name="catalogueStripPlaceholders" value="true" />
         <classes><class name="com.example.seleniumdemo.tests.WorkflowCatalogueGenerator" /></classes>
     </test>
 </suite>

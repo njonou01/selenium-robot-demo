@@ -22,13 +22,18 @@ import com.seleniumtests.core.SeleniumTestsContextManager;
 import com.seleniumtests.core.runner.SeleniumTestPlan;
 
 import com.example.seleniumdemo.reporting.WorkflowRegistry;
+import com.example.seleniumdemo.workflows.FormWorkflow;
 
 /**
  * Les scenarios a jouer sont pilotes depuis la variable serveur "workflow.scenarios" (JSON
- * [{"name": "...", "chain": "code1,code2,..."}]), pas depuis ce code Java. Chaque entree devient
- * une execution TestNG distincte, nommee dans le rapport via un DataProvider. Les codes de chaine
- * sont resolus par reflexion sur @Workflow(code=...) via WorkflowRegistry: ajouter/retirer un code
- * se fait dans la classe Workflow concernee, jamais ici.
+ * [{"name": "...", "sinistre": "...", "steps": ["code1", "code2", ...]}]), pas depuis ce code
+ * Java. Chaque entree devient une execution TestNG distincte, nommee dans le rapport via un
+ * DataProvider.
+ *
+ * Deroulement de chaque scenario: declaration du sinistre en premiere etape (appel direct a
+ * FormWorkflow, hors reflexion - voir testServerDrivenScenario()), puis enchainement des codes
+ * de "steps", resolus par reflexion sur @Workflow(code=...) via WorkflowRegistry. Ajouter ou
+ * retirer un code se fait dans la classe Workflow concernee, jamais ici.
  *
  * Un DataProvider s'execute avant que TestNG ne cree le ITestResult qui declenche la connexion
  * standard au serveur de variable: ce fichier appelle donc directement l'API REST, en lisant
@@ -49,6 +54,16 @@ public class VariableDrivenScenarioTest extends SeleniumTestPlan {
 	}
 
 	private void invoke(Map<Class<?>, Object> workflowInstances, Method method) {
+		// l'enchainement "steps" n'invoque que des methodes sans argument: un code associe a une
+		// methode parametree doit echouer ici avec un message clair plutot que remonter une
+		// IllegalArgumentException de reflection illisible.
+		if (method.getParameterCount() != 0) {
+			throw new IllegalStateException("Le workflow '" + method.getDeclaringClass().getSimpleName() + "."
+					+ method.getName() + "' attend " + method.getParameterCount()
+					+ " parametre(s): non supporte par l'enchainement JSON actuel (\"steps\"), qui n'invoque"
+					+ " que des methodes sans argument.");
+		}
+
 		Object instance = workflowInstance(workflowInstances, method.getDeclaringClass());
 		try {
 			method.invoke(instance);
@@ -133,10 +148,11 @@ public class VariableDrivenScenarioTest extends SeleniumTestPlan {
 		}
 	}
 
-	// rempli par le DataProvider, relu par le test: evite de passer "chainValue" comme 2e parametre de
-	// methode, ce qui ferait apparaitre la chaine de codes (bruit) a cote du nom dans le rapport
-	// ("with params: (...)" liste tous les arguments bruts de la methode, quel que soit testName).
-	private final Map<String, String> chainsByScenarioName = new LinkedHashMap<>();
+	// remplis par le DataProvider, relus par le test: evite de passer ces valeurs comme parametres
+	// de methode, ce qui ferait apparaitre du bruit ("with params: (...)") a cote du nom dans le
+	// rapport, quel que soit testName.
+	private final Map<String, List<String>> stepsByScenarioName = new LinkedHashMap<>();
+	private final Map<String, String> sinistresByScenarioName = new LinkedHashMap<>();
 
 	@DataProvider(name = "scenarios")
 	public Object[][] scenarios(ITestContext testContext) throws Exception {
@@ -144,12 +160,16 @@ public class VariableDrivenScenarioTest extends SeleniumTestPlan {
 		if (json == null || json.isBlank()) {
 			throw new IllegalStateException("Variable '" + VARIABLE_NAME + "' vide sur le serveur de variable.");
 		}
-		List<Map<String, String>> raw = new ObjectMapper().readValue(json, new TypeReference<List<Map<String, String>>>() {
+		ObjectMapper mapper = new ObjectMapper();
+		List<Map<String, Object>> raw = mapper.readValue(json, new TypeReference<List<Map<String, Object>>>() {
 		});
 		Object[][] data = new Object[raw.size()][1];
 		for (int i = 0; i < raw.size(); i++) {
-			String name = raw.get(i).get("name");
-			chainsByScenarioName.put(name, raw.get(i).get("chain"));
+			String name = (String) raw.get(i).get("name");
+			List<String> steps = mapper.convertValue(raw.get(i).get("steps"), new TypeReference<List<String>>() {
+			});
+			stepsByScenarioName.put(name, steps);
+			sinistresByScenarioName.put(name, (String) raw.get(i).get("sinistre"));
 			data[i][0] = name;
 		}
 		return data;
@@ -163,14 +183,26 @@ public class VariableDrivenScenarioTest extends SeleniumTestPlan {
 		// precedent et invoquerait des workflows lies a un driver deja mort.
 		Map<Class<?>, Object> workflowInstances = new LinkedHashMap<>();
 
-		String chainValue = chainsByScenarioName.get(scenarioName);
-		if (chainValue == null || chainValue.isBlank()) {
-			throw new IllegalStateException("Scenario '" + scenarioName + "': chaine de workflow vide.");
+		// premiere etape de tout scenario, toujours: declarer le sinistre avant d'enchainer les
+		// workflows. Appel direct (pas de code @Workflow, pas de passage par WorkflowRegistry): cette
+		// methode prend un parametre, que le mecanisme "steps" ne sait pas fournir (voir invoke()).
+		String sinistre = sinistresByScenarioName.get(scenarioName);
+		if (sinistre == null || sinistre.isBlank()) {
+			throw new IllegalStateException("Scenario '" + scenarioName + "': champ 'sinistre' vide.");
+		}
+		// FormWorkflow code en dur ici: contrairement aux codes de "steps" (resolus par reflexion
+		// via WorkflowRegistry), cet appel n'a pas de code @Workflow (voir plus haut) donc pas de
+		// resolution dynamique possible. Si la classe qui declare le sinistre change, c'est cette
+		// ligne (et l'import FormWorkflow en haut du fichier) qu'il faut mettre a jour.
+		((FormWorkflow) workflowInstance(workflowInstances, FormWorkflow.class)).processDeclareSinistre(sinistre);
+
+		List<String> steps = stepsByScenarioName.get(scenarioName);
+		if (steps == null || steps.isEmpty()) {
+			throw new IllegalStateException("Scenario '" + scenarioName + "': liste de workflow vide.");
 		}
 
-		for (String rawKey : chainValue.split(",")) {
-			String key = rawKey.trim();
-			Method method = registry.get(key);
+		for (String key : steps) {
+			Method method = registry.get(key.trim());
 			if (method == null) {
 				throw new IllegalArgumentException(
 						"Scenario '" + scenarioName + "': code de workflow inconnu '" + key + "'. Codes disponibles: "

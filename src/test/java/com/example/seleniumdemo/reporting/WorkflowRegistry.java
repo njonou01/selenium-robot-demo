@@ -10,13 +10,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Decouvre par reflexion toutes les methodes annotees @Workflow(code=...) du package "workflows",
- * sans liste codee en dur a maintenir. Point d'entree partage entre VariableDrivenScenarioTest (qui
- * execute les workflows) et les outils de documentation (qui listent juste les codes disponibles).
+ * Decouvre par reflexion toutes les methodes annotees @Workflow(code=...) dans les packages listes
+ * par SCANNED_PACKAGES (scan recursif, sous-packages inclus), sans liste codee en dur des classes.
+ * Point d'entree partage entre VariableDrivenScenarioTest (qui execute les workflows) et les outils
+ * de documentation (qui listent juste les codes disponibles).
+ *
+ * SCANNED_PACKAGES est une liste blanche volontaire, pas tout gmfindem: le perimetre restreint sert
+ * de garde-fou pour la separation Page (@Step) / Workflow (@Workflow) - une methode ne devient
+ * pilotable depuis le serveur de variable que si sa classe vit dans un package explicitement
+ * autorise ici. Ajouter un nouveau package = ajouter une ligne dans cette liste, jamais tout ouvrir.
  */
 public final class WorkflowRegistry {
 
-	private static final String WORKFLOWS_PACKAGE = "com.example.seleniumdemo.workflows";
+	private static final List<String> SCANNED_PACKAGES = List.of(
+			"com.example.seleniumdemo.workflows"
+	);
 
 	private WorkflowRegistry() {
 	}
@@ -25,27 +33,50 @@ public final class WorkflowRegistry {
 	}
 
 	/**
-	 * Decouvre toutes les classes du package "workflows" dont le nom finit par "Workflow", sans
-	 * dependance externe (scan du dossier compile via le classloader). Les classes sans methode
-	 * annotee @Workflow(code=...) (ex: MasterWorkflow, FormWorkflow) sont incluses sans consequence:
-	 * scanEntries() ne retient que les methodes avec un code non vide.
+	 * Parcourt recursivement chaque package de SCANNED_PACKAGES (sous-packages inclus, scan du
+	 * dossier compile via le classloader, sans dependance externe) et ne retient que les classes
+	 * qui declarent au moins une methode @Workflow(code=...) non vide. Aucune convention de nommage
+	 * requise sur la classe: la selection se fait sur l'annotation reelle, pas sur un suffixe.
 	 */
 	public static List<Class<?>> discoverWorkflowClasses() throws Exception {
 		List<Class<?>> classes = new ArrayList<>();
-		String path = WORKFLOWS_PACKAGE.replace('.', '/');
-		Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources(path);
-		while (resources.hasMoreElements()) {
-			File dir = new File(resources.nextElement().toURI());
-			File[] files = dir.listFiles((d, name) -> name.endsWith("Workflow.class"));
-			if (files == null) {
-				continue;
-			}
-			for (File file : files) {
-				String className = WORKFLOWS_PACKAGE + "." + file.getName().replace(".class", "");
-				classes.add(Class.forName(className));
+		for (String basePackage : SCANNED_PACKAGES) {
+			String path = basePackage.replace('.', '/');
+			Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources(path);
+			while (resources.hasMoreElements()) {
+				File root = new File(resources.nextElement().toURI());
+				collectWorkflowClasses(root, basePackage, classes);
 			}
 		}
 		return classes;
+	}
+
+	private static void collectWorkflowClasses(File dir, String packageName, List<Class<?>> out) throws Exception {
+		File[] files = dir.listFiles();
+		if (files == null) {
+			return;
+		}
+		for (File file : files) {
+			if (file.isDirectory()) {
+				collectWorkflowClasses(file, packageName + "." + file.getName(), out);
+			} else if (file.getName().endsWith(".class") && !file.getName().contains("$")) {
+				String className = packageName + "." + file.getName().substring(0, file.getName().length() - ".class".length());
+				Class<?> clazz = Class.forName(className);
+				if (hasWorkflowCode(clazz)) {
+					out.add(clazz);
+				}
+			}
+		}
+	}
+
+	private static boolean hasWorkflowCode(Class<?> clazz) {
+		for (Method method : clazz.getDeclaredMethods()) {
+			Workflow annotation = method.getAnnotation(Workflow.class);
+			if (annotation != null && !annotation.code().isBlank()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static List<Entry> scanEntries() throws Exception {

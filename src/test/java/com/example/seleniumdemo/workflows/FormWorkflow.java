@@ -35,6 +35,7 @@ public class FormWorkflow {
 
 	@Workflow(name = "Processus complet: Déclaration de sinistre ${id}")
 	public void processDeclareSinistre(String id) throws Exception {
+		System.out.println("Declaration de sinistre: " + id);
 		step1_verifyPage();
 		step2_fillField(id);
 		step3_submit();
