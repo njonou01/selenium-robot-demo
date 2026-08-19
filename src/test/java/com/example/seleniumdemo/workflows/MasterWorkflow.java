@@ -1,6 +1,6 @@
 package com.example.seleniumdemo.workflows;
 
-import com.example.seleniumdemo.reporting.Workflow;
+import com.example.seleniumdemo.custom.reporting.Workflow;
 
 public class MasterWorkflow {
 

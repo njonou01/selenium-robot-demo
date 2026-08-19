@@ -7,11 +7,12 @@
     <!-- seleniumRobotServerToken retire d'ici: vient de la variable d'env SELENIUM_ROBOT_SERVER_TOKEN -->
     <parameter name="testRetryCount" value="0" />
     <parameter name="equipe" value="Selenium Demo" />
+    <parameter name="customReport" value="true" />
     <listeners>
-        <listener class-name="com.example.seleniumdemo.reporting.CustomReportListener" />
-        <listener class-name="com.example.seleniumdemo.reporting.TeamInfoListener" />
+        <listener class-name="com.example.seleniumdemo.custom.reporting.CustomReportListener" />
+        <listener class-name="com.example.seleniumdemo.custom.reporting.TeamInfoListener" />
     </listeners>
     <test name="VariableDrivenScenario">
-        <classes><class name="com.example.seleniumdemo.tests.VariableDrivenScenarioTest" /></classes>
+        <classes><class name="com.example.seleniumdemo.custom.tests.ServerDrivenScenarioTest" /></classes>
     </test>
 </suite>

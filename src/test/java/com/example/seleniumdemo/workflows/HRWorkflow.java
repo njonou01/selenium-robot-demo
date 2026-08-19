@@ -3,9 +3,9 @@ package com.example.seleniumdemo.workflows;
 import com.seleniumtests.uipage.PageObject;
 
 import com.example.seleniumdemo.webpage.OrangeHRMPage;
-import com.example.seleniumdemo.testdata.MapParams;
-import com.example.seleniumdemo.reporting.Workflow;
-import com.example.seleniumdemo.utils.Lazy;
+import com.example.seleniumdemo.custom.testdata.MapParams;
+import com.example.seleniumdemo.custom.reporting.Workflow;
+import com.example.seleniumdemo.custom.utils.Lazy;
 
 public class HRWorkflow {
 

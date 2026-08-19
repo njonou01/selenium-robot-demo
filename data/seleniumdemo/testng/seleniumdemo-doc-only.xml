@@ -7,14 +7,15 @@
     <!-- seleniumRobotServerToken retire d'ici: vient de la variable d'env SELENIUM_ROBOT_SERVER_TOKEN -->
     <parameter name="testRetryCount" value="0" />
     <parameter name="equipe" value="Selenium Demo" />
+    <parameter name="customReport" value="true" />
     <listeners>
-        <listener class-name="com.example.seleniumdemo.reporting.CustomReportListener" />
-        <listener class-name="com.example.seleniumdemo.reporting.TeamInfoListener" />
+        <listener class-name="com.example.seleniumdemo.custom.reporting.CustomReportListener" />
+        <listener class-name="com.example.seleniumdemo.custom.reporting.TeamInfoListener" />
     </listeners>
     <test name="Documentation">
-        <parameter name="catalogueFields" value="code,name,method,description,class" />
+        <parameter name="catalogueFields" value="code,name,method,description,class,variables" />
         <parameter name="catalogueLayout" value="matrix" />
         <parameter name="catalogueStripPlaceholders" value="true" />
-        <classes><class name="com.example.seleniumdemo.tests.WorkflowCatalogueGenerator" /></classes>
+        <classes><class name="com.example.seleniumdemo.custom.catalogue.WorkflowCatalogueGenerator" /></classes>
     </test>
 </suite>

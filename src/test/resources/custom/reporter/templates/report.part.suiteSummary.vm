@@ -16,18 +16,19 @@
 		<link rel="stylesheet" type="text/css" href="${staticPathPrefix}resources/templates/seleniumRobot.css">
 		<script src="${staticPathPrefix}resources/templates/seleniumRobot.js"></script>
 		<style>
+			#parse("reporter/templates/fonts.part.vm")
 			/* ============================================================
 			   Design tokens - identiques a report.test.vm, garder synchronise
 			   ============================================================ */
 			:root {
-				--sr-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+				--sr-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 				--sr-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
 
 				--sr-space-1: 4px;  --sr-space-2: 8px;  --sr-space-3: 12px;
 				--sr-space-4: 16px; --sr-space-5: 24px; --sr-space-6: 32px;
 
-				--sr-radius: 10px;
-				--sr-radius-sm: 6px;
+				--sr-radius: 0;
+				--sr-radius-sm: 0;
 
 				--sr-ink: #0b1220;
 				--sr-ink-muted: #5b6472;
@@ -36,11 +37,11 @@
 				--sr-surface: #ffffff;
 				--sr-bg: #f5f6f8;
 
-				--sr-navy: #12283a;
-				--sr-navy-ink: #e8edf2;
-				--sr-navy-ink-muted: #9fb0bd;
-				--sr-navy-border: #24425a;
-				--sr-accent: #c98a2c;
+				--sr-navy: #153a4c;
+				--sr-navy-ink: #e9fafc;
+				--sr-navy-ink-muted: #9fc4d3;
+				--sr-navy-border: #29586e;
+				--sr-accent: #1daae2;
 
 				--sr-success: #1a7f4b; --sr-success-bg: #e9f7ef;
 				--sr-danger:  #c23b34; --sr-danger-bg:  #fbeae9;
@@ -61,8 +62,8 @@
 			.app-nav-brand { display: flex; align-items: center; gap: var(--sr-space-2); font-size: 14px; font-weight: 600; color: var(--sr-navy-ink); }
 			.app-nav-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--sr-accent); flex-shrink: 0; }
 			.app-nav-sep, .app-nav-product { color: var(--sr-navy-ink-muted); font-weight: 400; }
-			.app-nav-meta { display: flex; align-items: center; gap: var(--sr-space-3); font-family: var(--sr-font-mono); font-size: 12px; color: var(--sr-navy-ink-muted); }
-			.app-nav-meta i { color: var(--sr-navy-ink-muted); margin-right: var(--sr-space-1); }
+			.app-nav-link { color: var(--sr-navy-ink); text-decoration: none; }
+			.app-nav-link:hover { text-decoration: underline; }
 			.app-nav-team { color: var(--sr-navy-ink); }
 
 			/* --- Carte de statut --- */
@@ -86,26 +87,19 @@
 			.report-hero * { font-family: var(--sr-font-sans) !important; }
 			.report-hero.all-passed { border-left-color: var(--sr-success); }
 			.report-hero.has-failed { border-left-color: var(--sr-danger); }
-			.report-hero-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sr-space-4); }
-			.report-hero-status { display: flex; align-items: center; gap: var(--sr-space-4); }
+			.report-hero-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--sr-space-4); }
+			.report-hero-status { display: flex; flex-direction: column; align-items: center; gap: var(--sr-space-3); text-align: center; }
 			.report-hero-title { font-size: 18px; font-weight: 700; color: var(--sr-ink); letter-spacing: -0.01em; }
-			.status-pill {
-				display: inline-flex; align-items: center; gap: var(--sr-space-2);
-				padding: var(--sr-space-2) var(--sr-space-4);
-				border-radius: var(--sr-radius-sm);
-				font-family: var(--sr-font-mono) !important;
-				font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-			}
-			.all-passed .status-pill { color: #ffffff; background: var(--sr-success); }
-			.has-failed .status-pill { color: #ffffff; background: var(--sr-danger); }
+			.report-stat-eyebrow { font-size: 11px; font-weight: 700; color: var(--sr-ink-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--sr-space-2); }
+			.report-stat-row { display: flex; align-items: baseline; gap: var(--sr-space-3); }
+			.report-stat-number { font-family: var(--sr-font-mono); font-size: 40px; font-weight: 700; line-height: 1; color: var(--sr-ink); letter-spacing: -0.02em; }
+			.report-stat-label { font-size: 14px; color: var(--sr-ink-muted); }
+			.report-stat-bar { display: flex; height: 6px; width: 300px; margin-top: var(--sr-space-3); overflow: hidden; }
+			.report-stat-legend { display: flex; gap: var(--sr-space-5); margin-top: var(--sr-space-2); font-size: 12px; color: var(--sr-ink-muted); }
+			.report-stat-legend b { font-family: var(--sr-font-mono); font-weight: 700; }
 
 			/* --- Contenu --- */
 			.container-fluid { padding: 0 var(--sr-space-4) var(--sr-space-6); }
-			/* Chart.js dessine dans un canvas fixe a 250px de haut cote framework - vide (pas de
-			   comparaison de snapshot), il produit une grande case blanche quasi nue. On borne sa
-			   hauteur reelle pour que l'absence de donnee reste discrete plutot qu'imposante. */
-			.pieChart { background: var(--sr-surface); border: 1px solid var(--sr-border); border-radius: var(--sr-radius); padding: var(--sr-space-3) var(--sr-space-4); margin-top: var(--sr-space-4); }
-			.pieChart canvas { max-height: 110px !important; }
 			.content-header h1 { font-size: 13px; font-weight: 700; color: var(--sr-ink-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
 			.box.box-black {
@@ -128,32 +122,57 @@
 
 	<body>
 	#set ($equipe = "")
+	#set ($campagne = "")
 	#set ($anyFailed = false)
+	#set ($heroPassed = 0)
+	#set ($heroFailed = 0)
+	#set ($heroSkipped = 0)
+	#set ($heroTotal = 0)
 	#foreach ($testContext in $tests.entrySet())
 		#foreach ($testResult in $testContext.value)
-			#if ($testResult.getStatus() == 2)
+			#set ($heroTotal = $heroTotal + 1)
+			#if ($testResult.getStatus() == 1)
+				#set ($heroPassed = $heroPassed + 1)
+			#elseif ($testResult.getStatus() == 2)
 				#set ($anyFailed = true)
+				#set ($heroFailed = $heroFailed + 1)
+			#else
+				#set ($heroSkipped = $heroSkipped + 1)
 			#end
 			#set ($infoMap = $infos.get($testResult))
 			#if ($infoMap && $infoMap.get("Equipe"))
 				#set ($equipe = $infoMap.get("Equipe"))
 			#end
+			#if ($infoMap && $infoMap.get("Campagne"))
+				#set ($campagne = $infoMap.get("Campagne"))
+			#end
 		#end
 	#end
-	#if ($anyFailed)
-		#set ($heroStatusClass = "has-failed") #set ($heroIcon = "fa-xmark") #set ($heroLabel = "Des échecs")
+	#if ($heroTotal > 0)
+		#set ($heroPassedPct = $heroPassed * 100 / $heroTotal)
+		#set ($heroFailedPct = $heroFailed * 100 / $heroTotal)
+		#set ($heroSkippedPct = $heroSkipped * 100 / $heroTotal)
 	#else
-		#set ($heroStatusClass = "all-passed") #set ($heroIcon = "fa-check") #set ($heroLabel = "Tout est passé")
+		#set ($heroPassedPct = 0)
+		#set ($heroFailedPct = 0)
+		#set ($heroSkippedPct = 0)
+	#end
+	#if ($anyFailed)
+		#set ($heroStatusClass = "has-failed")
+	#else
+		#set ($heroStatusClass = "all-passed")
 	#end
 		<nav class="app-nav">
 			<div class="app-nav-inner">
 				<div class="app-nav-brand">
 					<span class="app-nav-dot"></span>
-					SeleniumRobot <span class="app-nav-sep">/</span> <span class="app-nav-product">Reports</span>
-				</div>
-				<div class="app-nav-meta">
+					<a href="https://github.com/bhecquet/seleniumRobot" class="app-nav-link">SeleniumRobot</a>
+					<span class="app-nav-sep">/</span> <span class="app-nav-product">Reports</span>
 					#if ($equipe != "")
-						<span><i class="fas fa-users"></i><span class="app-nav-team">$equipe</span></span>
+						<span class="app-nav-sep">/</span> <span class="app-nav-team">$equipe</span>
+					#end
+					#if ($campagne != "")
+						<span class="app-nav-sep">/</span> <span class="app-nav-team">$campagne</span>
 					#end
 				</div>
 			</div>
@@ -162,18 +181,37 @@
 			<header class="main-header report-hero $heroStatusClass">
 				<div class="report-hero-row">
 					<div class="report-hero-status">
-						<span class="status-pill"><i class="fas $heroIcon"></i> $heroLabel</span>
-						<div class="report-hero-title">Résumé de suite</div>
+						#if ($equipe != "")
+							<div class="report-stat-eyebrow">Campagne d'intégration#if ($campagne != "") &#183; $campagne#end &#183; Équipe $equipe</div>
+						#else
+							<div class="report-stat-eyebrow">Résumé de suite</div>
+						#end
+						<div class="report-stat-row">
+							<span class="report-stat-number">$heroPassed/$heroTotal</span>
+							<span class="report-stat-label">tests réussis</span>
+						</div>
+						<div class="report-stat-bar">
+							<div style="width: ${heroPassedPct}%; background: var(--sr-success);"></div>
+							<div style="width: ${heroFailedPct}%; background: var(--sr-danger);"></div>
+							<div style="width: ${heroSkippedPct}%; background: var(--sr-neutral);"></div>
+						</div>
+						<div class="report-stat-legend">
+							<span><b style="color: var(--sr-success);">$heroPassed</b> réussis</span>
+							<span><b style="color: var(--sr-danger);">$heroFailed</b> échecs</span>
+							<span><b style="color: var(--sr-neutral);">$heroSkipped</b> ignorés</span>
+						</div>
 					</div>
 				</div>
 			</header>
 		</div>
 		<div class="container-fluid">
-			<div class="pieChart">
-				<canvas id="pieChart" style="height:250px"></canvas>
-				<!--<div id="pieChartLegend" class="chart-legend"></div>-->
-			</div>
-	
+			<!-- canvas garde en DOM (cache) pour seleniumRobot.js: ce script du framework fait
+			     document.getElementById("pieChart").getContext(...) sans verifier null - le supprimer
+			     du DOM ferait planter ce script en erreur console (silencieux pour l'utilisateur mais
+			     sale). Camembert juge redondant avec le recap au-dessus (memes 3 categories), donc
+			     cache plutot que retire du DOM. -->
+			<div class="pieChart" style="display:none"><canvas id="pieChart"></canvas></div>
+
 			<section class="content-header">
 				<h1> Integration tests <span>(<a href="seleniumRobot.log" style="font-size: 15px;">full logs</a>)</span></h1>
 			</section>
