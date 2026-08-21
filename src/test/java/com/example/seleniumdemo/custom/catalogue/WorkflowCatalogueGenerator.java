@@ -2,6 +2,7 @@ package com.example.seleniumdemo.custom.catalogue;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -46,8 +47,6 @@ import com.example.seleniumdemo.custom.server.VariableServerConfig;
 public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 
 	private static final Logger logger = SeleniumRobotLogger.getLogger(WorkflowCatalogueGenerator.class);
-	private static final String CATALOGUE_PATH = "src/test/resources/workflows-catalogue.xlsx";
-	private static final String CATALOGUE_JSON_PATH = "src/test/resources/workflows-catalogue.json";
 	private static final String VARIABLE_NAME = "workflow.catalogue";
 	private static final List<String> DEFAULT_FIELDS = List.of("code", "name", "method", "description", "class");
 
@@ -117,6 +116,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		List<String> fields = readFields(testContext);
 		CatalogueLayout layout = CatalogueLayout.fromParameter(testContext.getCurrentXmlTest().getParameter("catalogueLayout"));
 		boolean stripPlaceholders = readBooleanParameter(testContext, "catalogueStripPlaceholders", true);
+		boolean keepLocalCopy = readBooleanParameter(testContext, "catalogueKeepLocalCopy", false);
 
 		Map<Class<?>, List<WorkflowRegistry.Entry>> entriesByClass = new LinkedHashMap<>();
 		for (WorkflowRegistry.Entry entry : entries) {
@@ -124,10 +124,10 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		}
 
 		switch (layout) {
-			case SHEETS -> generateSingleWorkbookWithSheets(entriesByClass, entries, fields, stripPlaceholders);
-			case BLOCKS -> generateSingleWorkbookWithBlocks(entriesByClass, entries, fields, stripPlaceholders);
-			case JSON -> generateJsonCatalogue(entriesByClass, entries, fields, stripPlaceholders);
-			case MATRIX -> generateSingleWorkbookWithMatrix(entriesByClass, entries, fields, stripPlaceholders);
+			case SHEETS -> generateSingleWorkbookWithSheets(entriesByClass, entries, fields, stripPlaceholders, keepLocalCopy);
+			case BLOCKS -> generateSingleWorkbookWithBlocks(entriesByClass, entries, fields, stripPlaceholders, keepLocalCopy);
+			case JSON -> generateJsonCatalogue(entriesByClass, entries, fields, stripPlaceholders, keepLocalCopy);
+			case MATRIX -> generateSingleWorkbookWithMatrix(entriesByClass, entries, fields, stripPlaceholders, keepLocalCopy);
 		}
 	}
 
@@ -236,7 +236,8 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 	}
 
 	private void generateSingleWorkbookWithSheets(Map<Class<?>, List<WorkflowRegistry.Entry>> entriesByClass,
-			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders) throws Exception {
+			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders,
+			boolean keepLocalCopy) throws Exception {
 		try (XSSFWorkbook workbook = new XSSFWorkbook()) {
 			Styles styles = buildStyles(workbook);
 
@@ -248,18 +249,21 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			}
 			addVariablesSheet(workbook, styles, allEntries);
 
-			try (FileOutputStream fos = new FileOutputStream(CATALOGUE_PATH)) {
+			File catalogueFile = createTempCatalogueFile(".xlsx");
+			try (FileOutputStream fos = new FileOutputStream(catalogueFile)) {
 				workbook.write(fos);
 			}
+			logger.info("Catalogue genere: " + catalogueFile);
+			uploadCatalogueToServer(catalogueFile, VARIABLE_NAME,
+					"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
+			copyToLocalIfRequested(catalogueFile, "src/test/resources/workflows-catalogue.xlsx", keepLocalCopy);
+			catalogueFile.delete();
 		}
-
-		logger.info("Catalogue genere: " + CATALOGUE_PATH);
-		uploadCatalogueToServer(new File(CATALOGUE_PATH), VARIABLE_NAME,
-				"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
 	}
 
 	private void generateSingleWorkbookWithBlocks(Map<Class<?>, List<WorkflowRegistry.Entry>> entriesByClass,
-			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders) throws Exception {
+			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders,
+			boolean keepLocalCopy) throws Exception {
 		try (XSSFWorkbook workbook = new XSSFWorkbook()) {
 			XSSFSheet sheet = workbook.createSheet("Workflows");
 			Styles styles = buildStyles(workbook);
@@ -272,18 +276,21 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			}
 			addVariablesSheet(workbook, styles, allEntries);
 
-			try (FileOutputStream fos = new FileOutputStream(CATALOGUE_PATH)) {
+			File catalogueFile = createTempCatalogueFile(".xlsx");
+			try (FileOutputStream fos = new FileOutputStream(catalogueFile)) {
 				workbook.write(fos);
 			}
+			logger.info("Catalogue genere: " + catalogueFile);
+			uploadCatalogueToServer(catalogueFile, VARIABLE_NAME,
+					"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
+			copyToLocalIfRequested(catalogueFile, "src/test/resources/workflows-catalogue.xlsx", keepLocalCopy);
+			catalogueFile.delete();
 		}
-
-		logger.info("Catalogue genere: " + CATALOGUE_PATH);
-		uploadCatalogueToServer(new File(CATALOGUE_PATH), VARIABLE_NAME,
-				"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
 	}
 
 	private void generateSingleWorkbookWithMatrix(Map<Class<?>, List<WorkflowRegistry.Entry>> entriesByClass,
-			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders) throws Exception {
+			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders,
+			boolean keepLocalCopy) throws Exception {
 		try (XSSFWorkbook workbook = new XSSFWorkbook()) {
 			XSSFSheet sheet = workbook.createSheet("Workflows");
 			Styles styles = buildStyles(workbook);
@@ -330,18 +337,21 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			}
 			addVariablesSheet(workbook, styles, allEntries);
 
-			try (FileOutputStream fos = new FileOutputStream(CATALOGUE_PATH)) {
+			File catalogueFile = createTempCatalogueFile(".xlsx");
+			try (FileOutputStream fos = new FileOutputStream(catalogueFile)) {
 				workbook.write(fos);
 			}
+			logger.info("Catalogue genere: " + catalogueFile);
+			uploadCatalogueToServer(catalogueFile, VARIABLE_NAME,
+					"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
+			copyToLocalIfRequested(catalogueFile, "src/test/resources/workflows-catalogue.xlsx", keepLocalCopy);
+			catalogueFile.delete();
 		}
-
-		logger.info("Catalogue genere: " + CATALOGUE_PATH);
-		uploadCatalogueToServer(new File(CATALOGUE_PATH), VARIABLE_NAME,
-				"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
 	}
 
 	private void generateJsonCatalogue(Map<Class<?>, List<WorkflowRegistry.Entry>> entriesByClass,
-			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders) throws Exception {
+			List<WorkflowRegistry.Entry> allEntries, List<String> fields, boolean stripPlaceholders,
+			boolean keepLocalCopy) throws Exception {
 		JSONArray classes = new JSONArray();
 		for (Map.Entry<Class<?>, List<WorkflowRegistry.Entry>> group : entriesByClass.entrySet()) {
 			JSONObject classObject = new JSONObject();
@@ -381,14 +391,17 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		root.put("classes", classes);
 		root.put("variables", variables);
 
-		try (OutputStreamWriter writer = new OutputStreamWriter(Files.newOutputStream(new File(CATALOGUE_JSON_PATH).toPath()),
+		File catalogueFile = createTempCatalogueFile(".json");
+		try (OutputStreamWriter writer = new OutputStreamWriter(Files.newOutputStream(catalogueFile.toPath()),
 				StandardCharsets.UTF_8)) {
 			writer.write(root.toString(2));
 		}
 
-		logger.info("Catalogue genere: " + CATALOGUE_JSON_PATH);
-		uploadCatalogueToServer(new File(CATALOGUE_JSON_PATH), VARIABLE_NAME,
+		logger.info("Catalogue genere: " + catalogueFile);
+		uploadCatalogueToServer(catalogueFile, VARIABLE_NAME,
 				"Catalogue des codes @Workflow disponibles, genere automatiquement (WorkflowCatalogueGenerator).");
+		copyToLocalIfRequested(catalogueFile, "src/test/resources/workflows-catalogue.json", keepLocalCopy);
+		catalogueFile.delete();
 	}
 
 	private int writeBlock(XSSFSheet sheet, Styles styles, int startRow, int startCol, String title,
@@ -497,5 +510,43 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		new VariableServerClient(config).uploadFile(variableName, file, description);
 
 		logger.info("Catalogue uploade sur le serveur de variable: " + variableName);
+	}
+
+	/**
+	 * Le catalogue n'a besoin d'exister que le temps de l'upload vers le serveur de variable -
+	 * rien d'autre ne le relit depuis le disque. Un fichier temporaire evite toute dependance
+	 * au dossier de lancement du process (contrairement a un chemin relatif fixe type
+	 * "src/test/resources/...") et n'ajoute pas d'artefact genere dans l'arborescence source.
+	 */
+	private File createTempCatalogueFile(String suffix) throws IOException {
+		File file = File.createTempFile("workflows-catalogue-", suffix);
+		file.deleteOnExit();
+		return file;
+	}
+
+	/**
+	 * Copie optionnelle vers un chemin relatif fixe (pratique pour inspecter le catalogue en
+	 * local sans aller le chercher sur le serveur de variable). Best-effort: si le dossier
+	 * cible n'existe pas (ex: lancement depuis un jar hors de l'arborescence source, sur
+	 * Jenkins), on logue un avertissement et on continue - ca ne doit jamais faire echouer le
+	 * test, la copie serveur (obligatoire, faite avant l'appel) reste la source de verite.
+	 */
+	private void copyToLocalIfRequested(File sourceFile, String localRelativePath, boolean keepLocalCopy) {
+		if (!keepLocalCopy) {
+			return;
+		}
+		try {
+			File localFile = new File(localRelativePath);
+			File parent = localFile.getParentFile();
+			if (parent != null && !parent.isDirectory()) {
+				logger.warn("Copie locale du catalogue ignoree: dossier introuvable '{}' (normal si le process "
+						+ "tourne hors de l'arborescence source, ex: jar Jenkins).", parent);
+				return;
+			}
+			Files.copy(sourceFile.toPath(), localFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			logger.info("Copie locale du catalogue: " + localRelativePath);
+		} catch (IOException e) {
+			logger.warn("Copie locale du catalogue ignoree: {}", e.getMessage());
+		}
 	}
 }

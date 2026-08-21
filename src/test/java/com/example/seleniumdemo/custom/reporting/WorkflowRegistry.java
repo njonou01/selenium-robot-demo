@@ -2,12 +2,15 @@ package com.example.seleniumdemo.custom.reporting;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 public final class WorkflowRegistry {
 
@@ -27,11 +30,39 @@ public final class WorkflowRegistry {
 			String path = basePackage.replace('.', '/');
 			Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources(path);
 			while (resources.hasMoreElements()) {
-				File root = new File(resources.nextElement().toURI());
-				collectWorkflowClasses(root, basePackage, classes);
+				URL resource = resources.nextElement();
+				if ("jar".equals(resource.getProtocol())) {
+					// classes packagees dans un jar (execution packagee, ex: Jenkins) : "new File(uri)"
+					// plante ici ("URI is not hierarchical") car une URL jar: n'est pas un chemin disque.
+					// Il faut lister les entrees du jar directement.
+					collectWorkflowClassesFromJar(resource, path, classes);
+				} else {
+					File root = new File(resource.toURI());
+					collectWorkflowClasses(root, basePackage, classes);
+				}
 			}
 		}
 		return classes;
+	}
+
+	private static void collectWorkflowClassesFromJar(URL resource, String path, List<Class<?>> out) throws Exception {
+		JarURLConnection connection = (JarURLConnection) resource.openConnection();
+		connection.setUseCaches(false); // sinon fermer ce JarFile casse le cache jar partage de la JVM
+		try (JarFile jarFile = connection.getJarFile()) {
+			Enumeration<JarEntry> entries = jarFile.entries();
+			while (entries.hasMoreElements()) {
+				JarEntry entry = entries.nextElement();
+				String name = entry.getName();
+				if (!name.startsWith(path + "/") || !name.endsWith(".class") || name.contains("$")) {
+					continue;
+				}
+				String className = name.substring(0, name.length() - ".class".length()).replace('/', '.');
+				Class<?> clazz = Class.forName(className);
+				if (hasWorkflowCode(clazz)) {
+					out.add(clazz);
+				}
+			}
+		}
 	}
 
 	private static void collectWorkflowClasses(File dir, String packageName, List<Class<?>> out) throws Exception {

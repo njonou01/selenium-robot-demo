@@ -13,6 +13,7 @@
 	<listeners>
 		<listener class-name="com.example.seleniumdemo.custom.reporting.CustomReportListener" />
 		<listener class-name="com.example.seleniumdemo.custom.reporting.TeamInfoListener" />
+		<listener class-name="com.example.seleniumdemo.custom.reporting.WorkflowGroupingListener" />
 	</listeners>
 
 	<test name="WebForm">
@@ -44,6 +45,10 @@
 		<parameter name="catalogueLayout" value="sheets" />
 		<!-- retire les "${xxx}" (placeholders runtime) du champ "name" affiche -->
 		<parameter name="catalogueStripPlaceholders" value="true" />
+		<!-- le catalogue est toujours uploade sur le serveur de variable (obligatoire).
+		     "true" garde EN PLUS une copie locale a src/test/resources/workflows-catalogue.*
+		     (best-effort, ignore silencieusement si ce dossier n'existe pas, ex: jar Jenkins). -->
+		<parameter name="catalogueKeepLocalCopy" value="false" />
 		<classes>
 			<class name="com.example.seleniumdemo.custom.catalogue.WorkflowCatalogueGenerator" />
 		</classes>

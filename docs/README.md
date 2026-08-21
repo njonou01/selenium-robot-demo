@@ -10,6 +10,7 @@ Bienvenue dans la documentation du projet.
 - [Framework SeleniumRobot](md/framework.md)
 - [Support du projet](md/support.md)
 - [Scénariser avec JSON ou Excel](md/conventions/scenario.md)
+- [Pourquoi le rapport custom plantait sur Jenkins (et ce qu'on a durci autour)](md/jenkins-jar-fixes.md)
 
 ## Schémas
 
