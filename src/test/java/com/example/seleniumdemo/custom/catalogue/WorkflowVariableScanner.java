@@ -1,10 +1,22 @@
 package com.example.seleniumdemo.custom.catalogue;
 
 import java.io.File;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.json.JSONObject;
@@ -18,6 +30,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 
+import com.example.seleniumdemo.custom.reporting.Workflow;
 import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
 
 public final class WorkflowVariableScanner {
@@ -48,6 +61,249 @@ public final class WorkflowVariableScanner {
 			case JSON -> buildJsonExample(paths);
 			case MAP -> buildMapExample(paths);
 		};
+	}
+
+	/**
+	 * Resout les vrais noms de parametres d'une methode via reflexion (bytecode), pas via lecture
+	 * du code source: fonctionne aussi bien depuis un jar empaquete (Jenkins) qu'en local, tant que
+	 * la compilation utilise le flag '-parameters' (deja active dans le pom pour maven-compiler-plugin
+	 * et aspectj-maven-plugin).
+	 */
+	public static List<String> resolveParameterNames(Method method) {
+		List<String> names = new ArrayList<>();
+		for (Parameter parameter : method.getParameters()) {
+			if (!parameter.isNamePresent()) {
+				throw new IllegalStateException("Noms de parametres absents du bytecode pour '"
+						+ method.getDeclaringClass().getSimpleName() + "." + method.getName()
+						+ "' - la compilation doit utiliser le flag '-parameters' "
+						+ "(maven-compiler-plugin et aspectj-maven-plugin dans le pom.xml).");
+			}
+			names.add(parameter.getName());
+		}
+		return names;
+	}
+
+	/**
+	 * Parse '@Workflow(params = {"nomMetier=cheminJava"})' en Map cheminJava -> nomMetier.
+	 * 'cheminJava' est soit un nom de parametre simple ('firstName'), soit un chemin pointe dans
+	 * un record ('address.street') pour nommer un champ interne. Partage entre resolveDataSetKeys
+	 * (niveau parametre) et convertDataSetValue (niveau champ de record) pour eviter 2 lectures
+	 * divergentes de la meme annotation.
+	 */
+	private static Map<String, String> parseParamsMapping(Method method) {
+		Workflow annotation = method.getAnnotation(Workflow.class);
+		String[] rawMappings = annotation == null ? new String[0] : annotation.params();
+		Map<String, String> javaPathToBusiness = new LinkedHashMap<>();
+		for (String rawMapping : rawMappings) {
+			String[] parts = rawMapping.split("=", 2);
+			if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+				throw new IllegalStateException("Mapping de parametre invalide '" + rawMapping + "' sur '"
+						+ method.getDeclaringClass().getSimpleName() + "." + method.getName()
+						+ "' - format attendu: '@Workflow(params = {\"nomMetier=cheminJava\"})'.");
+			}
+			javaPathToBusiness.put(parts[1].trim(), parts[0].trim());
+		}
+		return javaPathToBusiness;
+	}
+
+	/**
+	 * Resout, pour chaque parametre de la methode (dans l'ordre de la signature), la cle
+	 * top-niveau a chercher dans 'dataSet': le nom metier declare via
+	 * '@Workflow(params = {"nomMetier=nomJava"})' s'il existe pour ce parametre, sinon le nom
+	 * Java brut (resolveParameterNames) tel quel. Aucun mapping declare = comportement inchange.
+	 * Le mapping des champs internes d'un record ('address.street') est resolu separement, plus
+	 * bas dans la recursion de convertDataSetValue.
+	 */
+	public static List<String> resolveDataSetKeys(Method method) {
+		List<String> javaNames = resolveParameterNames(method);
+		Map<String, String> javaPathToBusiness = parseParamsMapping(method);
+
+		List<String> keys = new ArrayList<>(javaNames.size());
+		for (String javaName : javaNames) {
+			keys.add(javaPathToBusiness.getOrDefault(javaName, javaName));
+		}
+		return keys;
+	}
+
+	/**
+	 * Resout la valeur brute a utiliser pour le parametre 'key' d'un workflow 'workflowCode':
+	 * priorite au bloc specialise dataSet[workflowCode][key] s'il existe (objet JSON imbrique
+	 * sous le code du workflow), sinon repli sur dataSet[key] (valeur generique partagee entre
+	 * workflows). Evite qu'un meme nom de parametre (ex: 'address') partage entre 2 workflows
+	 * force la meme valeur pour les deux.
+	 */
+	public static Object resolveRawValue(Map<String, Object> dataSet, String workflowCode, String key) {
+		if (dataSet == null) {
+			return null;
+		}
+		Object scoped = dataSet.get(workflowCode);
+		if (scoped instanceof Map<?, ?> scopedMap && scopedMap.containsKey(key)) {
+			return scopedMap.get(key);
+		}
+		return dataSet.get(key);
+	}
+
+	/**
+	 * Point d'entree pour un parametre de methode: connait le mapping metier declare sur
+	 * '@Workflow' et le type generique reel du parametre (necessaire pour 'List&lt;T&gt;', dont
+	 * l'effacement de type rend 'Class&lt;?&gt;' seul insuffisant). Delegue ensuite a la conversion
+	 * recursive (record/tableau/scalaire).
+	 */
+	public static Object convertDataSetValue(Object rawValue, Parameter parameter) {
+		Method method = (Method) parameter.getDeclaringExecutable();
+		Map<String, String> javaPathToBusiness = parseParamsMapping(method);
+		Class<?> targetType = parameter.getType();
+
+		if (List.class.isAssignableFrom(targetType)) {
+			return convertList(rawValue, resolveListComponentType(parameter), javaPathToBusiness, parameter.getName());
+		}
+		return convertDataSetValue(rawValue, targetType, javaPathToBusiness, parameter.getName());
+	}
+
+	private static Class<?> resolveListComponentType(Parameter parameter) {
+		if (parameter.getParameterizedType() instanceof ParameterizedType parameterizedType
+				&& parameterizedType.getActualTypeArguments().length == 1
+				&& parameterizedType.getActualTypeArguments()[0] instanceof Class<?> componentType) {
+			return componentType;
+		}
+		throw new IllegalStateException("Impossible de determiner le type des elements de la List '"
+				+ parameter.getName() + "' (type generique non resolu - eviter les wildcards/types bornes).");
+	}
+
+	/**
+	 * Convertit une valeur brute de 'dataSet' (String, Number, Boolean, ou Map/List imbriquee -
+	 * cadeau de Jackson quand le JSON source a un objet/tableau imbrique) vers le type reel
+	 * attendu. Supporte String, enum (Enum.valueOf), int/long/double/boolean (primitifs et
+	 * wrappers), LocalDate (format ISO AAAA-MM-JJ), tableau (T[]) et record (reconstruit champ par
+	 * champ, recursivement - un champ record peut lui-meme etre un enum, un tableau ou un autre
+	 * record). 'javaPathToBusiness'/'javaPath' permettent de nommer les champs internes d'un
+	 * record via '@Workflow(params = {"nomMetier=cheminJava.champ"})', avec repli sur le nom Java
+	 * brut si rien n'est mappe pour ce chemin precis.
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static Object convertDataSetValue(Object rawValue, Class<?> targetType, Map<String, String> javaPathToBusiness,
+			String javaPath) {
+		if (targetType.isRecord()) {
+			if (!(rawValue instanceof Map<?, ?> fields)) {
+				throw new IllegalStateException("Le parametre de type record '" + targetType.getSimpleName()
+						+ "' attend un objet JSON (champ/valeur) dans 'dataSet', recu: '" + rawValue + "'.");
+			}
+			RecordComponent[] components = targetType.getRecordComponents();
+			Class<?>[] componentTypes = new Class<?>[components.length];
+			Object[] componentValues = new Object[components.length];
+			for (int i = 0; i < components.length; i++) {
+				componentTypes[i] = components[i].getType();
+				String componentPath = javaPath + "." + components[i].getName();
+				String lookupKey = javaPathToBusiness.getOrDefault(componentPath, components[i].getName());
+				Object fieldRaw = fields.get(lookupKey);
+				if (fieldRaw == null) {
+					throw new IllegalStateException("Champ '" + lookupKey + "' manquant pour le record '"
+							+ targetType.getSimpleName() + "' (champs disponibles: " + fields.keySet() + ").");
+				}
+				componentValues[i] = convertDataSetValue(fieldRaw, componentTypes[i], javaPathToBusiness, componentPath);
+			}
+			try {
+				Constructor<?> canonicalConstructor = targetType.getDeclaredConstructor(componentTypes);
+				canonicalConstructor.setAccessible(true);
+				return canonicalConstructor.newInstance(componentValues);
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("Impossible de construire le record '" + targetType.getSimpleName() + "'.", e);
+			}
+		}
+		if (targetType.isArray()) {
+			List<Object> convertedElements = convertList(rawValue, targetType.getComponentType(), javaPathToBusiness, javaPath);
+			Object nativeArray = Array.newInstance(targetType.getComponentType(), convertedElements.size());
+			for (int i = 0; i < convertedElements.size(); i++) {
+				Array.set(nativeArray, i, convertedElements.get(i));
+			}
+			return nativeArray;
+		}
+		if (targetType == String.class) {
+			return requireRawType(rawValue, String.class, targetType);
+		}
+		if (targetType.isEnum()) {
+			String rawString = requireRawType(rawValue, String.class, targetType);
+			try {
+				return Enum.valueOf((Class<? extends Enum>) targetType, rawString);
+			} catch (IllegalArgumentException e) {
+				throw new IllegalStateException("Valeur '" + rawString + "' invalide pour l'enum '"
+						+ targetType.getSimpleName() + "' - valeurs possibles: "
+						+ Arrays.toString(targetType.getEnumConstants()));
+			}
+		}
+		if (targetType == Integer.class || targetType == int.class) {
+			if (rawValue instanceof Number number) {
+				return number.intValue();
+			}
+			return parseOrFail(rawValue, targetType, Integer::parseInt);
+		}
+		if (targetType == Long.class || targetType == long.class) {
+			if (rawValue instanceof Number number) {
+				return number.longValue();
+			}
+			return parseOrFail(rawValue, targetType, Long::parseLong);
+		}
+		if (targetType == Double.class || targetType == double.class) {
+			if (rawValue instanceof Number number) {
+				return number.doubleValue();
+			}
+			return parseOrFail(rawValue, targetType, Double::parseDouble);
+		}
+		if (targetType == Boolean.class || targetType == boolean.class) {
+			if (rawValue instanceof Boolean bool) {
+				return bool;
+			}
+			if (rawValue instanceof String rawString) {
+				return Boolean.parseBoolean(rawString.trim());
+			}
+			throw new IllegalStateException("Valeur '" + rawValue + "' invalide pour un parametre de type boolean.");
+		}
+		if (targetType == LocalDate.class) {
+			String rawString = requireRawType(rawValue, String.class, targetType);
+			try {
+				return LocalDate.parse(rawString.trim());
+			} catch (DateTimeParseException e) {
+				throw new IllegalStateException("Valeur '" + rawString + "' invalide pour un parametre de type LocalDate "
+						+ "(format attendu: AAAA-MM-JJ).");
+			}
+		}
+		throw new IllegalStateException("Type de parametre '" + targetType.getSimpleName()
+				+ "' non supporte par 'dataSet'.");
+	}
+
+	private static List<Object> convertList(Object rawValue, Class<?> componentType, Map<String, String> javaPathToBusiness,
+			String javaPath) {
+		if (!(rawValue instanceof List<?> rawList)) {
+			throw new IllegalStateException("Le parametre '" + javaPath
+					+ "' attend un tableau JSON dans 'dataSet', recu: '" + rawValue + "'.");
+		}
+		List<Object> converted = new ArrayList<>(rawList.size());
+		for (Object element : rawList) {
+			converted.add(convertDataSetValue(element, componentType, javaPathToBusiness, javaPath + "[]"));
+		}
+		return converted;
+	}
+
+	private static <T> T requireRawType(Object rawValue, Class<T> expectedRawType, Class<?> targetType) {
+		if (expectedRawType.isInstance(rawValue)) {
+			return expectedRawType.cast(rawValue);
+		}
+		throw new IllegalStateException("Valeur '" + rawValue + "' invalide pour un parametre de type "
+				+ targetType.getSimpleName() + " (type recu: "
+				+ (rawValue == null ? "null" : rawValue.getClass().getSimpleName()) + ").");
+	}
+
+	private static Object parseOrFail(Object rawValue, Class<?> targetType, Function<String, Object> parser) {
+		if (rawValue instanceof String rawString) {
+			try {
+				return parser.apply(rawString.trim());
+			} catch (NumberFormatException e) {
+				throw new IllegalStateException(
+						"Valeur '" + rawValue + "' invalide pour un parametre de type " + targetType.getSimpleName() + ".");
+			}
+		}
+		throw new IllegalStateException(
+				"Valeur '" + rawValue + "' invalide pour un parametre de type " + targetType.getSimpleName() + ".");
 	}
 
 	public static List<VariableUsage> scan(WorkflowRegistry.Entry entry) {

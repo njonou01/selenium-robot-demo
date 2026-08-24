@@ -2,7 +2,9 @@ package com.example.seleniumdemo.custom.tests;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +15,7 @@ import org.testng.annotations.Test;
 
 import com.seleniumtests.core.runner.SeleniumTestPlan;
 
+import com.example.seleniumdemo.custom.catalogue.WorkflowVariableScanner;
 import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
 import com.example.seleniumdemo.custom.scenarios.ExcelScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.JsonScenarioSource;
@@ -21,6 +24,7 @@ import com.example.seleniumdemo.custom.scenarios.ScenarioSource;
 import com.example.seleniumdemo.custom.server.VariableServerClient;
 import com.example.seleniumdemo.custom.server.VariableServerConfig;
 import com.example.seleniumdemo.workflows.FormWorkflow;
+import com.example.seleniumdemo.workflows.SbcWorkflow;
 
 public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 
@@ -43,17 +47,29 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		});
 	}
 
-	private void invoke(Map<Class<?>, Object> workflowInstances, Method method) {
-		if (method.getParameterCount() != 0) {
-			throw new IllegalStateException("Le workflow '" + method.getDeclaringClass().getSimpleName() + "."
-					+ method.getName() + "' attend " + method.getParameterCount()
-					+ " parametre(s): non supporte par l'enchainement JSON actuel (\"steps\"), qui n'invoque"
-					+ " que des methodes sans argument.");
+	private void invoke(Map<Class<?>, Object> workflowInstances, String workflowCode, Method method, Map<String, Object> dataSet) {
+		Object[] args;
+		if (method.getParameterCount() == 0) {
+			args = new Object[0];
+		} else {
+			List<String> dataSetKeys = WorkflowVariableScanner.resolveDataSetKeys(method);
+			Parameter[] parameters = method.getParameters();
+			args = new Object[dataSetKeys.size()];
+			for (int i = 0; i < dataSetKeys.size(); i++) {
+				String paramName = dataSetKeys.get(i);
+				Object rawValue = WorkflowVariableScanner.resolveRawValue(dataSet, workflowCode, paramName);
+				if (rawValue == null) {
+					throw new IllegalStateException("Le workflow '" + method.getDeclaringClass().getSimpleName() + "."
+							+ method.getName() + "' attend le parametre '" + paramName + "', absent du 'dataSet' du scenario ("
+							+ "dataSet disponible: " + (dataSet == null ? "{}" : dataSet.keySet()) + ").");
+				}
+				args[i] = WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
+			}
 		}
 
 		Object instance = workflowInstance(workflowInstances, method.getDeclaringClass());
 		try {
-			method.invoke(instance);
+			method.invoke(instance, args);
 		} catch (InvocationTargetException e) {
 			if (e.getCause() instanceof RuntimeException runtimeException) {
 				throw runtimeException;
@@ -64,6 +80,53 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 			throw new RuntimeException(e.getCause());
 		} catch (IllegalAccessException e) {
 			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Verifie, pour chaque scenario, que chaque workflow reference existe et que son 'dataSet'
+	 * couvre bien tous les parametres attendus - avant meme d'ouvrir un navigateur, plutot que de
+	 * decouvrir un 'dataSet' incomplet apres 1-2 minutes d'execution Selenium.
+	 */
+	private void validateDataSets(List<ScenarioDef> scenarios) throws Exception {
+		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
+		List<String> problems = new ArrayList<>();
+
+		for (ScenarioDef scenario : scenarios) {
+			for (String code : scenario.steps()) {
+				Method method = registry.get(code.trim());
+				if (method == null) {
+					problems.add("Scenario '" + scenario.name() + "': code de workflow inconnu '" + code + "'.");
+					continue;
+				}
+				if (method.getParameterCount() == 0) {
+					continue;
+				}
+				List<String> dataSetKeys = WorkflowVariableScanner.resolveDataSetKeys(method);
+				Parameter[] parameters = method.getParameters();
+				for (int i = 0; i < dataSetKeys.size(); i++) {
+					String paramName = dataSetKeys.get(i);
+					Object rawValue = WorkflowVariableScanner.resolveRawValue(scenario.dataSet(), code.trim(), paramName);
+					if (rawValue == null) {
+						problems.add("Scenario '" + scenario.name() + "': le workflow '" + code + "' attend le parametre '"
+								+ paramName + "', absent du 'dataSet' (dataSet disponible: "
+								+ (scenario.dataSet() == null ? "{}" : scenario.dataSet().keySet()) + ").");
+						continue;
+					}
+					try {
+						WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
+					} catch (RuntimeException e) {
+						problems.add("Scenario '" + scenario.name() + "': workflow '" + code + "', parametre '" + paramName
+								+ "' - " + e.getMessage());
+					}
+				}
+			}
+		}
+
+		if (!problems.isEmpty()) {
+			throw new IllegalStateException(
+					"'dataSet' invalide pour " + problems.size() + " probleme(s), avant meme d'ouvrir un navigateur:\n"
+							+ String.join("\n", problems));
 		}
 	}
 
@@ -89,6 +152,8 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 
 	private final Map<String, List<String>> stepsByScenarioName = new LinkedHashMap<>();
 	private final Map<String, String> sinistresByScenarioName = new LinkedHashMap<>();
+	private final Map<String, Boolean> sbcByScenarioName = new LinkedHashMap<>();
+	private final Map<String, Map<String, Object>> dataSetByScenarioName = new LinkedHashMap<>();
 
 	@DataProvider(name = "scenarios")
 	public Object[][] scenarios(ITestContext testContext) throws Exception {
@@ -103,11 +168,14 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		if (scenarios.isEmpty()) {
 			throw new IllegalStateException("Variable '" + variableName + "' ne contient aucun scenario.");
 		}
+		validateDataSets(scenarios);
 		Object[][] data = new Object[scenarios.size()][1];
 		for (int i = 0; i < scenarios.size(); i++) {
 			ScenarioDef scenario = scenarios.get(i);
 			stepsByScenarioName.put(scenario.name(), scenario.steps());
 			sinistresByScenarioName.put(scenario.name(), scenario.sinistre());
+			sbcByScenarioName.put(scenario.name(), scenario.sbc());
+			dataSetByScenarioName.put(scenario.name(), scenario.dataSet());
 			data[i][0] = scenario.name();
 		}
 		return data;
@@ -117,6 +185,12 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 	public void testServerDrivenScenario(String scenarioName) throws Exception {
 		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
 		Map<Class<?>, Object> workflowInstances = new LinkedHashMap<>();
+
+		Map<String, Object> dataSet = dataSetByScenarioName.get(scenarioName);
+
+		if (Boolean.TRUE.equals(sbcByScenarioName.get(scenarioName))) {
+			((SbcWorkflow) workflowInstance(workflowInstances, SbcWorkflow.class)).run();
+		}
 
 		String sinistre = sinistresByScenarioName.get(scenarioName);
 		if (sinistre == null || sinistre.isBlank()) {
@@ -137,7 +211,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 								+ String.join(", ", registry.keySet()));
 			}
 
-			invoke(workflowInstances, method);
+			invoke(workflowInstances, key.trim(), method, dataSet);
 		}
 	}
 }

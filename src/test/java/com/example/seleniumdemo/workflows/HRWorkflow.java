@@ -3,7 +3,6 @@ package com.example.seleniumdemo.workflows;
 import com.seleniumtests.uipage.PageObject;
 
 import com.example.seleniumdemo.webpage.OrangeHRMPage;
-import com.example.seleniumdemo.custom.testdata.MapParams;
 import com.example.seleniumdemo.custom.reporting.Workflow;
 import com.example.seleniumdemo.custom.utils.Lazy;
 
@@ -40,14 +39,13 @@ public class HRWorkflow {
 	}
 
 	@Workflow(name = "Workflow RH complet", code = "hr.full")
-	public void fullHRFlow() throws Exception {
+	public void fullHRFlow(String firstName, String lastName) throws Exception {
 		String username = PageObject.param("orangeHRM.username");
 		String password = PageObject.param("orangeHRM.password");
-		MapParams params = MapParams.load("hr.params");
 
 		step1_login(username, password);
 		step2_navigateToAddEmployee();
-		step3_addEmployee(params.get("employee.firstName"), params.get("employee.lastName"));
+		step3_addEmployee(firstName, lastName);
 		step4_timesheet();
 		step5_myInfo();
 	}

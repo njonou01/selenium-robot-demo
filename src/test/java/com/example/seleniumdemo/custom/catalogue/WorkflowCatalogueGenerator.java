@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -65,6 +68,8 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		COLUMN_EXTRACTORS.put("class", e -> e.declaringClass().getSimpleName());
 		COLUMN_LABELS.put("variables", "Variables serveur");
 		COLUMN_EXTRACTORS.put("variables", WorkflowCatalogueGenerator::describeVariables);
+		COLUMN_LABELS.put("parameters", "Parametres dataSet");
+		COLUMN_EXTRACTORS.put("parameters", WorkflowCatalogueGenerator::describeParameters);
 	}
 
 	private static String describeVariables(WorkflowRegistry.Entry entry) {
@@ -73,6 +78,48 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			return "";
 		}
 		return usages.stream().map(WorkflowVariableScanner.VariableUsage::name).collect(Collectors.joining(", "));
+	}
+
+	private static String describeParameters(WorkflowRegistry.Entry entry) {
+		try {
+			List<String> keys = WorkflowVariableScanner.resolveDataSetKeys(entry.method());
+			if (keys.isEmpty()) {
+				return "(aucun)";
+			}
+			Parameter[] parameters = entry.method().getParameters();
+			List<String> described = new ArrayList<>(keys.size());
+			for (int i = 0; i < keys.size(); i++) {
+				String hint = describeParameterHint(parameters[i]);
+				described.add(hint.isEmpty() ? keys.get(i) : keys.get(i) + " (" + hint + ")");
+			}
+			return String.join(", ", described);
+		} catch (Exception e) {
+			return "(erreur: " + e.getMessage() + ")";
+		}
+	}
+
+	/**
+	 * Indice affiche entre parentheses a cote du nom du parametre dans le catalogue: valeurs
+	 * possibles pour un enum, champs pour un record, type d'element pour un tableau/List. Vide
+	 * (String, int, etc.) si le type ne demande pas de precision supplementaire.
+	 */
+	private static String describeParameterHint(Parameter parameter) {
+		Class<?> type = parameter.getType();
+		if (type.isEnum()) {
+			return Arrays.stream(type.getEnumConstants()).map(Object::toString).collect(Collectors.joining(" | "));
+		}
+		if (type.isRecord()) {
+			return "record: " + Arrays.stream(type.getRecordComponents())
+					.map(RecordComponent::getName).collect(Collectors.joining(", "));
+		}
+		if (type.isArray()) {
+			return "tableau de " + type.getComponentType().getSimpleName();
+		}
+		if (List.class.isAssignableFrom(type) && parameter.getParameterizedType() instanceof ParameterizedType parameterizedType
+				&& parameterizedType.getActualTypeArguments().length == 1) {
+			return "liste de " + ((Class<?>) parameterizedType.getActualTypeArguments()[0]).getSimpleName();
+		}
+		return "";
 	}
 
 	private String resolveValue(String field, WorkflowRegistry.Entry entry, boolean stripPlaceholders) {

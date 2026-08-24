@@ -66,6 +66,7 @@
 					<encoding>utf-8</encoding>
 					<source>21</source>
 					<target>21</target>
+					<parameters>true</parameters>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -93,6 +94,7 @@
 					<complianceLevel>21</complianceLevel>
 					<source>21</source>
 					<target>21</target>
+					<parameters>true</parameters>
 					<showWeaveInfo>false</showWeaveInfo>
 					<Xlint>unmatchedSuperTypeInCall=ignore</Xlint>
 					<aspectLibraries>

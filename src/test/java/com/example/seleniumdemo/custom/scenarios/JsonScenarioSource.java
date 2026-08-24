@@ -23,7 +23,11 @@ public class JsonScenarioSource implements ScenarioSource {
 				String sinistre = (String) entry.get("sinistre");
 				List<String> steps = mapper.convertValue(entry.get("steps"), new TypeReference<List<String>>() {
 				});
-				scenarios.add(new ScenarioDef(name, sinistre, steps));
+				boolean sbc = Boolean.TRUE.equals(entry.get("sbc"));
+				Map<String, Object> dataSet = entry.get("dataSet") == null ? Map.of()
+						: mapper.convertValue(entry.get("dataSet"), new TypeReference<Map<String, Object>>() {
+						});
+				scenarios.add(new ScenarioDef(name, sinistre, steps, sbc, dataSet));
 			}
 			return scenarios;
 		} catch (Exception e) {

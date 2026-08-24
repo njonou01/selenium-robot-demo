@@ -13,7 +13,6 @@
 	<listeners>
 		<listener class-name="com.example.seleniumdemo.custom.reporting.CustomReportListener" />
 		<listener class-name="com.example.seleniumdemo.custom.reporting.TeamInfoListener" />
-		<listener class-name="com.example.seleniumdemo.custom.reporting.WorkflowGroupingListener" />
 	</listeners>
 
 	<test name="WebForm">
@@ -36,8 +35,8 @@
 
 	<test name="Documentation">
 		<!-- champs a afficher dans le catalogue, dans l'ordre, separes par virgule.
-		     valeurs possibles: code, name, method, description, class -->
-		<parameter name="catalogueFields" value="code,name,method,description,class,variables" />
+		     valeurs possibles: code, name, method, description, class, variables, parameters -->
+		<parameter name="catalogueFields" value="code,name,method,description,class,parameters,variables" />
 		<!-- sheets = 1 seul fichier xlsx, 1 onglet par classe Workflow (nom sans "Workflow").
 		     blocks = 1 seul fichier xlsx, 1 seule feuille, 1 bloc de colonnes par classe, empiles verticalement.
 		     json = 1 fichier json, 1 objet par classe Workflow ("class"+"workflows").

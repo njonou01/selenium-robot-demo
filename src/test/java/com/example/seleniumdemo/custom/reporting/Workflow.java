@@ -24,4 +24,13 @@ public @interface Workflow {
 	String errorCauseDetails() default "";
 
 	boolean disableBugTracker() default false;
+
+	/**
+	 * Mapping optionnel nom metier -> nom Java pour les parametres consommes via 'dataSet'
+	 * (format "nomMetier=nomJava", ex: {"prenom=firstName"}). Un parametre Java non liste ici
+	 * garde son nom Java tel quel comme cle 'dataSet' - ce mapping ne sert que pour les
+	 * parametres ou le vocabulaire metier (redacteur de scenario non-dev) doit differer du nom
+	 * de variable Java.
+	 */
+	String[] params() default {};
 }

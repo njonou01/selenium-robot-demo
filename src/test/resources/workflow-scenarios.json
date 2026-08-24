@@ -1,18 +1,32 @@
 [
   {
-    "name": "Scenario Ecommerce Electronics",
+    "name": "Scenario Complet SBC",
     "steps": [
       "ecommerce.full",
-      "electronics.full"
-    ],
-    "sinistre": "09E5YUHV"
-  },
-  {
-    "name": "Scenario Bancaire RH",
-    "steps": [
+      "electronics.full",
       "banking.full",
       "hr.full"
     ],
-    "sinistre": "5EWOOI5B"
+    "sinistre": "09E5YUHV",
+    "sbc": true,
+    "dataSet": {
+      "firstName": "Robert",
+      "lastName": "Wilson"
+    }
+  },
+  {
+    "name": "Scenario Complet",
+    "steps": [
+      "ecommerce.full",
+      "electronics.full",
+      "banking.full",
+      "hr.full"
+    ],
+    "sinistre": "5EWOOI5B",
+    "sbc": false,
+    "dataSet": {
+      "firstName": "Robert",
+      "lastName": "Wilson"
+    }
   }
 ]
