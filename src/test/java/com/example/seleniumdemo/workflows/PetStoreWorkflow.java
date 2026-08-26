@@ -3,7 +3,7 @@ package com.example.seleniumdemo.workflows;
 import com.seleniumtests.uipage.PageObject;
 
 import com.example.seleniumdemo.webpage.PetStorePage;
-import com.example.seleniumdemo.custom.testdata.JsonParams;
+import com.example.seleniumdemo.custom.testdata.MapParams;
 import com.example.seleniumdemo.custom.reporting.Workflow;
 import com.example.seleniumdemo.custom.utils.Lazy;
 
@@ -40,7 +40,7 @@ public class PetStoreWorkflow {
 	public void fullPetStoreFlow() throws Exception {
 		String username = PageObject.param("petStore.username");
 		String password = PageObject.param("petStore.password");
-		JsonParams params = JsonParams.load("petstore.params");
+		MapParams params = MapParams.load("petstore.params");
 
 		step1_login(username, password);
 		step2_browseSelectAndAdd(params.get("browse.category"), params.get("browse.productId"), params.get("browse.itemId"));

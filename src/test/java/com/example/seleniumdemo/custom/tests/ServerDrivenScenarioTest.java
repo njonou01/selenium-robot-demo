@@ -86,17 +86,25 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 	/**
 	 * Verifie, pour chaque scenario, que chaque workflow reference existe et que son 'dataSet'
 	 * couvre bien tous les parametres attendus - avant meme d'ouvrir un navigateur, plutot que de
-	 * decouvrir un 'dataSet' incomplet apres 1-2 minutes d'execution Selenium.
+	 * decouvrir un 'dataSet' incomplet apres 1-2 minutes d'execution Selenium. Les problemes sont
+	 * rattaches au scenario concerne (via 'errorByScenarioName') plutot que de faire planter le
+	 * chargement de TOUS les scenarios: un 'dataSet' casse dans le scenario A ne doit pas empecher
+	 * le scenario B (correct) de s'executer.
 	 */
 	private void validateDataSets(List<ScenarioDef> scenarios) throws Exception {
 		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
-		List<String> problems = new ArrayList<>();
 
 		for (ScenarioDef scenario : scenarios) {
+			if (scenario.parseError() != null) {
+				errorByScenarioName.put(scenario.name(), scenario.parseError());
+				continue;
+			}
+
+			List<String> problems = new ArrayList<>();
 			for (String code : scenario.steps()) {
 				Method method = registry.get(code.trim());
 				if (method == null) {
-					problems.add("Scenario '" + scenario.name() + "': code de workflow inconnu '" + code + "'.");
+					problems.add("code de workflow inconnu '" + code + "'.");
 					continue;
 				}
 				if (method.getParameterCount() == 0) {
@@ -108,25 +116,23 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 					String paramName = dataSetKeys.get(i);
 					Object rawValue = WorkflowVariableScanner.resolveRawValue(scenario.dataSet(), code.trim(), paramName);
 					if (rawValue == null) {
-						problems.add("Scenario '" + scenario.name() + "': le workflow '" + code + "' attend le parametre '"
-								+ paramName + "', absent du 'dataSet' (dataSet disponible: "
+						problems.add("le workflow '" + code + "' attend le parametre '" + paramName
+								+ "', absent du 'dataSet' (dataSet disponible: "
 								+ (scenario.dataSet() == null ? "{}" : scenario.dataSet().keySet()) + ").");
 						continue;
 					}
 					try {
 						WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
 					} catch (RuntimeException e) {
-						problems.add("Scenario '" + scenario.name() + "': workflow '" + code + "', parametre '" + paramName
-								+ "' - " + e.getMessage());
+						problems.add("workflow '" + code + "', parametre '" + paramName + "' - " + e.getMessage());
 					}
 				}
 			}
-		}
 
-		if (!problems.isEmpty()) {
-			throw new IllegalStateException(
-					"'dataSet' invalide pour " + problems.size() + " probleme(s), avant meme d'ouvrir un navigateur:\n"
-							+ String.join("\n", problems));
+			if (!problems.isEmpty()) {
+				errorByScenarioName.put(scenario.name(), "'dataSet' invalide pour le scenario '" + scenario.name()
+						+ "', avant meme d'ouvrir un navigateur:\n" + String.join("\n", problems));
+			}
 		}
 	}
 
@@ -154,6 +160,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 	private final Map<String, String> sinistresByScenarioName = new LinkedHashMap<>();
 	private final Map<String, Boolean> sbcByScenarioName = new LinkedHashMap<>();
 	private final Map<String, Map<String, Object>> dataSetByScenarioName = new LinkedHashMap<>();
+	private final Map<String, String> errorByScenarioName = new LinkedHashMap<>();
 
 	@DataProvider(name = "scenarios")
 	public Object[][] scenarios(ITestContext testContext) throws Exception {
@@ -183,6 +190,11 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 
 	@Test(dataProvider = "scenarios", testName = "${arg0}")
 	public void testServerDrivenScenario(String scenarioName) throws Exception {
+		String error = errorByScenarioName.get(scenarioName);
+		if (error != null) {
+			throw new IllegalStateException(error);
+		}
+
 		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
 		Map<Class<?>, Object> workflowInstances = new LinkedHashMap<>();
 

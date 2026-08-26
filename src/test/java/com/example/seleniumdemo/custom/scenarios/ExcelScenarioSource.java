@@ -32,6 +32,9 @@ public class ExcelScenarioSource implements ScenarioSource {
 			Map<String, Boolean> sbcByScenario = new LinkedHashMap<>();
 			Map<String, Map<String, Object>> dataSetByScenario = new LinkedHashMap<>();
 			Map<String, List<String>> stepsByScenario = new LinkedHashMap<>();
+			// scenario dont la cellule 'dataSet' est illisible: isole (n'echoue qu'a l'execution de
+			// CE scenario), plutot que de faire planter la lecture de tout le fichier Excel.
+			Map<String, String> poisonByScenario = new LinkedHashMap<>();
 
 			String currentScenario = null;
 			String currentSinistre = null;
@@ -56,7 +59,13 @@ public class ExcelScenarioSource implements ScenarioSource {
 					currentScenario = name;
 					currentSinistre = sinistre;
 					currentSbc = "true".equalsIgnoreCase(sbc) || "1".equals(sbc) || "oui".equalsIgnoreCase(sbc);
-					currentDataSet = parseDataSet(dataSet);
+					try {
+						currentDataSet = parseDataSet(dataSet);
+					} catch (Exception e) {
+						poisonByScenario.put(currentScenario, "Scenario '" + currentScenario
+								+ "' illisible dans la feuille Excel 'workflow.scenarios': " + e.getMessage());
+						currentDataSet = Map.of();
+					}
 				}
 				if (currentScenario == null) {
 					throw new IllegalStateException("Feuille Excel 'workflow.scenarios': ligne " + (row.getRowNum() + 1)
@@ -74,8 +83,13 @@ public class ExcelScenarioSource implements ScenarioSource {
 
 			List<ScenarioDef> scenarios = new ArrayList<>();
 			for (Map.Entry<String, List<String>> entry : stepsByScenario.entrySet()) {
-				scenarios.add(new ScenarioDef(entry.getKey(), sinistreByScenario.get(entry.getKey()), entry.getValue(),
-						sbcByScenario.get(entry.getKey()), dataSetByScenario.get(entry.getKey())));
+				String scenarioName = entry.getKey();
+				if (poisonByScenario.containsKey(scenarioName)) {
+					scenarios.add(ScenarioDef.invalid(scenarioName, poisonByScenario.get(scenarioName)));
+					continue;
+				}
+				scenarios.add(new ScenarioDef(scenarioName, sinistreByScenario.get(scenarioName), entry.getValue(),
+						sbcByScenario.get(scenarioName), dataSetByScenario.get(scenarioName)));
 			}
 			return scenarios;
 		} catch (Exception e) {

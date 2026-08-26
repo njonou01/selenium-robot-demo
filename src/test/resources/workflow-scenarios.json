@@ -10,8 +10,10 @@
     "sinistre": "09E5YUHV",
     "sbc": true,
     "dataSet": {
-      "firstName": "Robert",
-      "lastName": "Wilson"
+      "employee": {
+        "firstName": "Robert",
+        "lastName": "Wilson"
+      }
     }
   },
   {
@@ -25,8 +27,10 @@
     "sinistre": "5EWOOI5B",
     "sbc": false,
     "dataSet": {
-      "firstName": "Robert",
-      "lastName": "Wilson"
+      "employee": {
+        "firstName": "Robert",
+        "lastName": "Wilson"
+      }
     }
   }
 ]

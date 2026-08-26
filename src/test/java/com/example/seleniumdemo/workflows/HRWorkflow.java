@@ -39,13 +39,13 @@ public class HRWorkflow {
 	}
 
 	@Workflow(name = "Workflow RH complet", code = "hr.full")
-	public void fullHRFlow(String firstName, String lastName) throws Exception {
+	public void fullHRFlow(Employee employee) throws Exception {
 		String username = PageObject.param("orangeHRM.username");
 		String password = PageObject.param("orangeHRM.password");
 
 		step1_login(username, password);
 		step2_navigateToAddEmployee();
-		step3_addEmployee(firstName, lastName);
+		step3_addEmployee(employee.firstName(), employee.lastName());
 		step4_timesheet();
 		step5_myInfo();
 	}
