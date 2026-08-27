@@ -45,9 +45,10 @@ supplémentaire (`SbcWorkflow`) en tout début de scénario. `steps` liste les c
 joués dans l'ordre écrit. `dataSet` porte les données nécessaires aux workflows de la liste — il
 peut être vide ou absent si aucun d'entre eux n'attend de paramètre.
 
-Le fichier peut aussi être en Excel (colonnes `scenario_name`, `sinistre`, `step`, `sbc`,
-`dataSet` au format `cle=valeur,cle=valeur`) : on uploade le `.xlsx` à la place du JSON dans la
-même variable, le format est détecté tout seul.
+Le fichier peut aussi être en Excel : on uploade le `.xlsx` à la place du JSON dans la même
+variable, le format est détecté tout seul à l'extension du fichier. Voir la section 3 plus bas
+pour le détail du format Excel — les colonnes, comment mettre une fiche complète dans une
+cellule, tout ça mérite mieux qu'une ligne.
 
 Un détail qui a son importance : si un scénario du fichier est mal formé, seul celui-là échoue à
 l'exécution, avec un message qui dit lequel et pourquoi. Les autres continuent de tourner
@@ -141,7 +142,45 @@ de connexion sont dans des variables à part : `parabank.username`/`parabank.pas
 
 ---
 
-## 3. Dans le rapport
+## 3. Le format Excel
+
+Mêmes idées que le JSON (name, sinistre, sbc, steps, dataSet), mais en colonnes. Un scénario
+occupe un bloc de lignes consécutives :
+
+| scenario_name | sinistre | step | sbc | dataSet |
+|---|---|---|---|---|
+| Scenario Sinistre Auto | AUTO-2026-04871 | auto.declaration | false | `employee={"firstName":"Robert","lastName":"Wilson"}` |
+| | | auto.chiffrage | | |
+| | | auto.recours | | |
+
+La première ligne du bloc porte `scenario_name` (ce qui démarre le scénario), `sinistre`, `sbc`,
+et le `dataSet` complet du scénario. Les lignes suivantes du même bloc n'ont que `step` rempli —
+chacune ajoute une étape de plus à `steps`, dans l'ordre des lignes. Point important : le
+`dataSet` **ne se lit qu'une fois**, sur la première ligne du bloc. Une valeur mise dans la
+colonne `dataSet` d'une ligne suivante est ignorée — tout doit tenir dans cette première cellule.
+
+La cellule `dataSet` est une liste `cle=valeur,cle=valeur`. Une valeur peut être du texte simple
+(`code=R00`) ou un fragment JSON si la donnée est structurée — une fiche complète, une liste, ou
+une valeur propre à un workflow précis (même mécanisme d'override qu'en JSON,
+`dataSet["code.du.workflow"]`) :
+
+```text
+employee={"firstName":"Robert","lastName":"Wilson"},montantDevis=1450.00,auto.recours={"code":"R00"}
+```
+
+Ici, `montantDevis` est disponible à tous les workflows du bloc qui le demandent, alors que
+`{"code":"R00"}` n'est pris en compte que par le workflow `auto.recours` précisément — la virgule
+sépare les paires au niveau racine de la cellule, elle est ignorée à l'intérieur d'un fragment
+`{...}`/`[...]`, donc pas de souci si une valeur JSON contient elle-même des virgules.
+
+Un scénario ne peut pas apparaître dans deux blocs séparés (deux plages de lignes non
+consécutives avec le même `scenario_name`) — le fichier échoue au chargement dans ce cas,
+message à l'appui. Une cellule `dataSet` invalide (JSON mal formé dans un fragment, paire sans
+`=`) n'affecte que ce scénario, pas les autres lignes du fichier.
+
+---
+
+## 4. Dans le rapport
 
 Chaque scénario devient une ligne de test TestNG à part, nommée d'après son `name` ("Scenario
 Complet SBC", par exemple), et chaque workflow de la chaîne apparaît comme une étape imbriquée
@@ -149,7 +188,7 @@ dans le détail du test.
 
 ---
 
-## 4. Pour les devs
+## 5. Pour les devs
 
 `ServerDrivenScenarioTest` récupère `workflow.scenarios` via un `@DataProvider` (JSON ou Excel,
 détecté à l'extension), valide chaque scénario à sec, puis lance une exécution TestNG par
