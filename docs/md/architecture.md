@@ -1,70 +1,45 @@
-# Vue d’ensemble
+# Vue d'ensemble
 
-L’architecture du projet repose sur des couches séparées, chacune avec un rôle précis.
-
-## Flux principal
+Le projet est organisé en couches séparées, chacune avec un rôle précis :
 
 ```text
-Variables serveur → Tests → Flux métier → Pages web
+Variables serveur → Tests → Workflows → Pages web
 ```
 
-Ce flux résume la chaîne normale d’exécution :
+Les variables serveur pilotent l'exécution (quel scénario, quelles données). Les tests choisissent
+le scénario et appellent le bon workflow. Le workflow porte et transforme la donnée métier puis
+enchaîne les pages. Les pages exécutent les interactions UI. Un test ne parle jamais directement à
+une page web — il passe toujours par un workflow.
 
-- les variables serveur pilotent l’exécution ;
-- les tests choisissent le scénario et appellent le bon flux ;
-- le flux métier porte et transforme les données métier puis enchaîne les actions ;
-- les pages web exécutent les interactions UI.
+Cette séparation ne sert à rien si elle n'est pas tenue : une page qui va lire une variable serveur
+elle-même, un test qui porte le détail de la logique métier, ou `custom` qui devient une deuxième
+couche métier cachée, et l'architecture perd son intérêt aussi vite qu'elle a été mise en place.
 
-Un test ne parle jamais directement à une page web : il passe toujours par un flux métier.
+## Rôle de chaque couche
 
-## Ce qui ne doit pas arriver
+**Tests** — orchestrent les scénarios, appellent les workflows, vérifient le résultat attendu.
+Pas de Selenium direct, pas de fabrication de la donnée métier du cas.
 
-- une page web qui lit directement une variable serveur ;
-- un test qui porte la logique métier détaillée ;
-- un flux métier qui devient un gestionnaire de campagne ;
-- `custom` qui devient un deuxième cœur métier ;
-- plusieurs façons différentes de définir le même code de workflow.
+**Workflows** — portent la logique métier et les données du cas d'usage, enchaînent les pages,
+appliquent les règles du domaine. Ils ne pilotent pas la campagne de test.
 
-## Rôle des couches
+**Pages web** — cliquent, saisissent, lisent, attendent. Elles ne lisent pas les variables
+serveur et ne portent pas de logique métier.
 
-### Tests
+**Custom** — le support technique commun : catalogue des workflows, client du serveur de
+variables, logs, helpers. Il ne porte jamais la logique métier du produit.
 
-- orchestrent les scénarios ;
-- appellent les flux métier ;
-- vérifient le résultat attendu ;
-- ne font pas de Selenium direct ;
-- ne fabriquent pas la donnée métier du cas ;
-- ne touchent jamais directement aux pages.
+## En pratique
 
-### Flux métier
-
-- portent la logique métier ;
-- portent aussi les données du cas d’usage ;
-- enchaînent les pages web ;
-- appliquent les règles du domaine ;
-- ne pilotent pas la campagne de test.
-
-### Pages web
-
-- font les actions UI ;
-- cliquent, saisissent, lisent et attendent ;
-- ne lisent pas les variables serveur ;
-- ne portent pas la logique métier.
-
-### Custom
-
-- contient le support technique ;
-- regroupe le catalogue des workflows, le client des variables serveur, les logs et les helpers ;
-- ne porte pas la logique métier du produit.
-
-## Exemples concrets
-
-- un test peut choisir le scénario à lancer ;
-- un test ne doit pas ouvrir une page web lui-même ;
-- un flux métier peut lire ou recevoir une donnée métier commune comme un profil ou un jeu de paramètres ;
-- une page web peut recevoir un sélecteur ou une valeur, mais pas aller chercher elle-même la configuration ;
-- un catalogue peut lister les codes des workflows, mais il ne doit pas devenir la source de vérité manuelle si le code sait déjà produire cette information.
+Un test peut choisir quel scénario lancer, mais ne doit jamais ouvrir une page lui-même. Un
+workflow peut recevoir une donnée métier commune (un profil, un jeu de paramètres) et
+l'utiliser pour enchaîner les pages. Une page reçoit un sélecteur ou une valeur, elle ne va pas
+chercher elle-même sa configuration. Et le catalogue peut lister les codes de workflow, mais ne
+doit jamais devenir une source de vérité tenue à la main si le code sait déjà produire cette
+information tout seul — une ancienne version de `README-workflow-scenarios.md` listait les codes
+à la main, et elle a fini par mentir dès le premier workflow ajouté sans qu'on pense à la mettre
+à jour.
 
 ## Diagramme associé
 
-- [Diagramme Draw.io](../architecture.drawio)
+[Diagramme Draw.io](../architecture.drawio)

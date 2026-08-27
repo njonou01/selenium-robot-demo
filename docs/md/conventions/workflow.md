@@ -1,70 +1,18 @@
 # Écrire un workflow
 
-Un workflow porte la logique métier du projet et les données de ce cas d’usage.
+Un workflow porte la logique métier et les données du cas d'usage. Il enchaîne les pages web,
+sans prendre la main sur l'exécution globale — ça, c'est le rôle du test.
 
-Il sert à enchaîner les pages web de manière cohérente, sans prendre la main sur l’exécution globale.
+## L'annotation `@Workflow`
 
-## Utiliser l’annotation `@Workflow`
+`name` décrit l'étape telle qu'elle doit apparaître dans le rapport — c'est ce que lit un testeur
+manuel, pas un dev, donc en français et sans jargon. `description` ajoute un complément quand le
+nom seul ne suffit pas à comprendre l'étape. `code` identifie la méthode de façon stable pour le
+catalogue et pour l'exécution pilotée par scénario (`workflow.scenarios`).
 
-Chaque méthode de workflow qui doit apparaître dans le rapport ou être appelée comme étape métier reçoit `@Workflow`.
-
-Cette annotation sert à deux choses différentes :
-
-- `name` décrit l’étape telle qu’elle doit apparaître dans le rapport ;
-- `description` ajoute un complément utile au rapport quand le nom ne suffit pas ;
-- `code` identifie l’étape de façon stable pour le catalogue et l’exécution pilotée par scénario.
-
-Le principe est simple :
-
-- si la méthode doit juste être lisible dans les rapports, `name` suffit ;
-- si on veut ajouter un contexte lisible au rapport, on remplit aussi `description` ;
-- si la méthode doit être retrouvée par un scénario JSON ou listée dans le catalogue, il faut aussi un `code`.
-
-### Quand mettre `code`
-
-On met `code` quand la méthode doit être :
-
-- appelée depuis un scénario piloté par code ;
-- retrouvée par le registre des workflows ;
-- exposée dans un catalogue ou une liste de références stables ;
-- utilisée comme point d’entrée durable entre configuration et exécution.
-
-Le `code` doit être :
-
-- unique ;
-- stable ;
-- court ;
-- sans dépendre du texte du rapport.
-
-### Quand mettre `description`
-
-On met `description` quand on veut compléter le `name` avec une phrase plus explicite, par exemple :
-
-- préciser le but exact de l’étape ;
-- donner un contexte métier utile à la lecture du rapport ;
-- aider à comprendre une action qui serait trop courte si elle n’était nommée que par `name`.
-
-On peut laisser `description` vide si `name` suffit déjà.
-
-### Quand ne pas mettre `code`
-
-On ne met pas `code` si la méthode :
-
-- n’a pas vocation à être appelée par un scénario externe ;
-- sert seulement de petite étape métier interne ;
-- n’a pas besoin d’être cataloguée ;
-- doit rester libre d’évolution sans contrat externe.
-
-Dans ce cas, `name` suffit pour le rapport.
-
-### Ce qu’on retient
-
-- `name` = visibilité et lisibilité dans le rapport ;
-- `description` = précision supplémentaire dans le rapport ;
-- `code` = stabilité pour l’orchestration externe et le catalogue ;
-- pas de `code` inutile sur une méthode qui n’a pas de point d’entrée externe.
-
-### Exemple
+On ne met un `code` que si la méthode doit être appelable depuis un scénario JSON, ou listée dans
+le catalogue comme point d'entrée durable. Une étape interne, qui n'a pas vocation à être
+déclenchée de l'extérieur, se contente de `name` :
 
 ```java
 public class AssuranceWorkflow {
@@ -82,74 +30,34 @@ public class AssuranceWorkflow {
 }
 ```
 
-Dans cet exemple :
+`ouvrirContrat()` reste visible dans le rapport mais n'a pas de point d'entrée catalogue.
+`ouvrirContratComplet()` en a un, parce que c'est elle qu'un scénario externe doit pouvoir
+appeler.
 
-- `ouvrirContrat()` est une étape visible dans le rapport, mais sans point d’entrée catalogue ;
-- `ouvrirContratComplet()` est une vraie entrée stable pour un scénario externe, donc on lui donne un `code`.
+## Ce qu'un workflow fait, et ce qu'il ne fait pas
 
-## Rôle d’un workflow
-
-- composer plusieurs pages ;
-- appliquer une règle métier ;
-- choisir une branche métier ;
-- faire circuler les données nécessaires au flux ;
-- transformer ou enrichir les données métier du flux si besoin.
-
-## Ce qu’un workflow doit faire
-
-- appeler les bonnes pages ;
-- enchaîner des actions UI dans le bon ordre ;
-- garder la logique métier lisible ;
-- retourner une page ou un résultat utile si besoin ;
-- porter la donnée métier utile au cas.
-
-## Ce qu’un workflow ne doit pas faire
-
-- piloter la campagne de test ;
-- décider quels scénarios sont exécutés ;
-- porter la campagne de test globale ;
-- faire du Selenium direct si une page existe déjà ;
-- devenir un fourre-tout de helpers ;
-- porter du code de support transversal.
-
-## Règle de base
-
-Un workflow ne doit contenir que la logique métier du cas et les données qui vont avec.
-
-Il ne doit pas :
-
-- réécrire ce que devrait faire une page web.
-- remplacer le scénario que le test doit choisir.
+Un workflow compose des pages, applique une règle métier, choisit une branche, fait circuler et
+transforme la donnée du cas. Il ne pilote pas la campagne de test, ne décide pas quels scénarios
+tournent, et ne fait pas de Selenium direct si une page existe déjà pour ça — sinon on se retrouve
+avec deux endroits qui savent parler au navigateur, et le jour où le sélecteur change il faut
+penser aux deux.
 
 ### Point de reprise commun
 
-Pour des raisons de compatibilité et de chaînage, les workflows doivent se terminer sur la page de synthèse de déclaration quand ce point existe dans le parcours.
+Pour pouvoir chaîner plusieurs workflows dans un même scénario, chacun doit se terminer dans un
+état lisible et réutilisable par le suivant — en général la page de synthèse de déclaration
+quand elle existe dans le parcours. Un workflow qui laisse le navigateur sur un écran
+intermédiaire difficile à identifier casse cet enchaînement pour celui d'après.
 
-L’idée est de laisser chaque workflow dans un état lisible et réutilisable par le workflow suivant.
-
-Règle pratique :
-
-- le workflow exécute son flux ;
-- il utilise la page métier qui mène à la synthèse de déclaration ;
-- il s’arrête sur la synthèse de déclaration ;
-- le workflow suivant repart depuis cet état commun ;
-- on évite de laisser un workflow bloqué sur un écran intermédiaire difficile à reprendre.
-
-## Ordre conseillé
+## Ordre conseillé dans une méthode de workflow
 
 ```text
 1. recevoir ou construire les données utiles
 2. ouvrir ou récupérer la bonne page
-3. exécuter les actions métier dans l’ordre
+3. exécuter les actions métier dans l'ordre
 4. vérifier le résultat métier local si nécessaire
-5. retourner une page, un état, ou `this`
+5. retourner une page, un état, ou this
 ```
-
-## Bon usage des pages
-
-Le workflow doit utiliser les pages métier, pas les détails de Selenium.
-
-Exemple :
 
 ```java
 public class DemandeWorkflow {
@@ -164,46 +72,19 @@ public class DemandeWorkflow {
 }
 ```
 
-## Bon usage des vérifications
+Les vérifications métier peuvent vivre dans le workflow. Celles qui ne servent qu'à contrôler
+l'état d'une page restent dans la page. Celles qui valident la campagne de test restent dans le
+test — le workflow ne construit jamais la donnée métier du cas à la place du test, et le test
+n'appelle jamais une page directement.
 
-- si la vérification est métier, elle peut être dans le workflow ;
-- si la vérification sert juste à contrôler l’état d’une page, elle peut rester dans la page ;
-- si la vérification sert à valider la campagne de test, elle doit rester dans le test.
+## Lire des données via `MapParams` / `JsonParams`
 
-## Gestion des données
+Deux formes selon la structure des données : `MapParams` pour des valeurs plates
+(`cle=valeur`/`cle:valeur`), `JsonParams` quand on veut garder une vraie hiérarchie. Le détail de
+l'API (`getFuzzy`, `getSubtree`, résolution `$.`, cache, piège fichier/texte côté serveur) est
+dans [`params.md`](params.md) — ici on montre juste l'usage côté workflow.
 
-Le workflow est l’endroit normal pour :
-
-- recevoir les données métier ;
-- les normaliser si besoin ;
-- les répartir entre les pages ;
-- appliquer une transformation simple utile au cas ;
-- porter la donnée métier jusqu’au bout du flux.
-
-Le test ne doit pas devenir l’endroit où l’on fabrique la donnée métier du cas.
-Le test ne doit pas appeler les pages directement : il passe par le workflow.
-
-## Entrées via params et json params
-
-Quand le workflow doit lire des valeurs venant du serveur de variables, il le fait ici.
-
-Cette section montre l'usage côté workflow. Pour le détail de l'API (`getFuzzy`, résolution
-`$.`, cache, piège fichier/texte côté serveur), voir [`params.md`](params.md).
-
-Deux formes sont surtout utilisées :
-
-- `MapParams` pour les paramètres simples, plats, au format `cle=valeur` ou `cle:valeur` ;
-- `JsonParams` pour les paramètres structurés, quand on veut garder une hiérarchie de données.
-
-L’idée est simple :
-
-- le workflow lit les données ;
-- le workflow choisit comment les utiliser ;
-- le test reste au-dessus et ne manipule pas ces détails.
-
-### Exemple avec `MapParams`
-
-Un cas de souscription d’assurance peut n’avoir besoin que de quelques valeurs simples :
+Un cas simple, avec `MapParams` :
 
 ```java
 public class SouscriptionAssuranceWorkflow {
@@ -221,9 +102,7 @@ public class SouscriptionAssuranceWorkflow {
 }
 ```
 
-### Exemple avec `JsonParams`
-
-Un cas de gestion de sinistre peut avoir une structure plus riche :
+Un cas plus structuré, avec `JsonParams` :
 
 ```java
 public class SinistreAssuranceWorkflow {
@@ -245,16 +124,9 @@ public class SinistreAssuranceWorkflow {
 }
 ```
 
-### Quand les utiliser
-
-- `MapParams` quand on veut une liste simple de paires clé/valeur ;
-- `JsonParams` quand on veut regrouper plusieurs niveaux de données ;
-- `get(path)` quand on veut lire une valeur précise ;
-- `getSubtree(path)` quand on veut récupérer un sous-ensemble cohérent de données.
-
-### Exemple long avec plusieurs sources
-
-Un workflow d’assurance peut combiner plusieurs sources de données dans une même exécution :
+Et un workflow qui combine plusieurs sources dans une même exécution — `PageObject.param(...)`
+pour une valeur simple, `MapParams`/`JsonParams` pour des blocs de données, et `Params` en
+paramètre de méthode privée quand on veut rester agnostique sur la source exacte :
 
 ```java
 public class DossierAssuranceWorkflow {
@@ -314,51 +186,25 @@ public class DossierAssuranceWorkflow {
 }
 ```
 
-Dans cet exemple :
+L'intérêt de prendre `Params` plutôt que `MapParams`/`JsonParams` en paramètre de méthode privée:
+la méthode ne dépend plus de la source exacte, tant que la forme de lecture (chemin pointé) reste
+compatible.
 
-- `PageObject.param(...)` sert pour une valeur simple et directe ;
-- `MapParams` sert pour les paramètres plats d’un bloc métier ;
-- `JsonParams` sert pour les données structurées ;
-- `Params` sert dans les méthodes privées quand on veut rester agnostique sur la source exacte.
+## Nommage
 
-L’intérêt de `Params` est simple :
+Le nom du workflow doit refléter le métier réel du flux, pas un détail technique — et rester
+stable dans le temps, parce que c'est ce qui apparaît partout dans les logs. Pour les variables,
+on préfère un nom directement identifiable (`sinistreAssurance`, `dossierSinistre`,
+`numeroContrat`) à un suffixe générique comme `Data` (`sinistreData`) qui n'ajoute rien.
 
-- la méthode de workflow reçoit juste ce dont elle a besoin ;
-- la méthode ne dépend pas de l’implémentation précise ;
-- on peut lui passer aussi bien un `MapParams` qu’un `JsonParams` si la forme de lecture est compatible.
-
-## Ce qu’on privilégie
-
-- des méthodes courtes ;
-- des noms métier clairs ;
-- une seule responsabilité par méthode ;
-- un retour lisible pour chaîner si nécessaire.
-
-## Ce qu’on évite
-
-- des workflows trop longs ;
-- des méthodes qui mélangent navigation, pilotage et support ;
-- des helpers cachés dans le workflow ;
-- des règles différentes selon les appels.
-
-## Règle de nommage
-
-Le nom du workflow doit rester stable et parlant.
-
-Il doit refléter le métier réel du flux, pas le détail technique.
-
-### Règle pour les noms de variables
-
-- le nom doit être identifiable à la lecture ;
-- il doit dire tout de suite ce qu’il représente ;
-- on évite les suffixes génériques comme `Data` quand le nom métier suffit ;
-- on garde un suffixe seulement s’il apporte une vraie précision ;
-- on préfère `sinistreAssurance`, `dossierSinistre`, `numeroContrat` à des noms vagues comme `sinistreData` ou `assuranceData`.
-
-## Raccourci de lecture
+## Repères rapides
 
 ```text
 test → choisit
 workflow → porte la donnée et enchaîne
 page → agit
 ```
+
+Ce qu'on évite dans un workflow : des méthodes qui mélangent navigation, pilotage et support, des
+helpers cachés qui devraient être ailleurs, et des règles qui changent selon qui appelle la
+méthode.

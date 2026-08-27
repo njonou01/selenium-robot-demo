@@ -1,7 +1,5 @@
 # Documentation Selenium Demo
 
-Bienvenue dans la documentation du projet.
-
 ## Pages utiles
 
 - [Structure du projet](md/structure-projet.md)
@@ -16,42 +14,24 @@ Bienvenue dans la documentation du projet.
 
 - [Diagramme principal](architecture.drawio)
 
-## Lecture rapide
+## Comment lire le code
 
-- `tests` orchestre les scénarios ;
-- `workflows` porte la logique métier ;
-- `webpage` exécute les actions Selenium ;
-- `custom` contient le support commun.
+`tests` orchestre les scénarios, `workflows` porte la logique métier, `webpage` exécute les
+actions Selenium, `custom` regroupe le support commun (reporting, chargement de données,
+catalogue...).
 
-## Pourquoi cette architecture
+## Pourquoi cette séparation
 
-On a choisi cette architecture pour séparer clairement les responsabilités et garder le projet lisible quand il grandit.
+Le but, c'est qu'un test reste lisible même quand le projet grossit : les tests décident quoi
+lancer, pas comment l'UI fonctionne ; les workflows portent le métier et la donnée du cas ; les
+pages encapsulent l'UI et les sélecteurs. `custom` reste un support technique partagé — dès qu'on
+commence à y mettre de la logique métier, la séparation perd son intérêt.
 
-L’idée est simple :
+En pratique ça donne des tests plus courts, moins de code de navigation dupliqué entre deux
+workflows qui passent par la même page, et un rapport qui reste lisible parce que chaque étape
+raconte une action métier plutôt qu'un clic technique.
 
-- les tests décident quoi lancer, pas comment l’UI fonctionne ;
-- les workflows portent le métier et la donnée du cas ;
-- les pages encapsulent l’IU et les sélecteurs ;
-- le support commun reste dans `custom`, sans mélanger la logique métier.
-
-## Ce que ça apporte
-
-- des tests plus courts et plus lisibles ;
-- moins de duplication de navigation ;
-- des pages réutilisables ;
-- une meilleure traçabilité dans les rapports ;
-- une source de vérité plus claire pour les données métier.
-
-## Les limites à garder en tête
-
-- il faut respecter les conventions de nommage et de couches ;
-- il y a plus de fichiers à comprendre au début ;
-- si on mélange les rôles, l’architecture perd vite son intérêt ;
-- `custom` doit rester stable : on ne lui ajoute pas de nouvelle responsabilité métier.
-
-## Règle de fond
-
-- les tests ne touchent jamais directement aux pages ;
-- les workflows lisent les données et enchaînent les pages ;
-- les pages restent la couche UI ;
-- `custom` reste un support technique partagé, pas une couche métier cachée.
+La contrepartie : ça fait plus de fichiers à comprendre au début, et la règle "les tests ne
+touchent jamais directement aux pages" ne tient que si on la respecte vraiment — un test qui
+appelle une `PageObject` directement pour "gagner du temps" casse l'intérêt de toute
+l'architecture, pas juste ce test-là.
