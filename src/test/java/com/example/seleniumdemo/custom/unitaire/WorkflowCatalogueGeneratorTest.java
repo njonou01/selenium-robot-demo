@@ -21,18 +21,21 @@ public class WorkflowCatalogueGeneratorTest {
 		APPLE, PEAR
 	}
 
-	// Pas de 'toString()' override volontairement: 'describeParameterHint' doit lire 'code' et
-	// 'weight' par reflexion, jamais via toString() (sinon ces champs restent invisibles des
-	// qu'un dev oublie l'override).
+	// 'toString()' override deliberement DIFFERENT du nom, pour prouver que
+	// 'describeParameterHint' utilise '.name()' et jamais 'toString()' - le dataSet attend le
+	// nom brut (Enum.valueOf), pas ce texte-la, meme si un dev l'a surcharge pour autre chose.
 	public enum Status {
-		APPROVED("A", 1), REJECTED("R", 0);
+		APPROVED("A"), REJECTED("R");
 
 		private final String code;
-		private final int weight;
 
-		Status(String code, int weight) {
+		Status(String code) {
 			this.code = code;
-			this.weight = weight;
+		}
+
+		@Override
+		public String toString() {
+			return "Statut " + code;
 		}
 	}
 
@@ -70,11 +73,16 @@ public class WorkflowCatalogueGeneratorTest {
 		Assert.assertEquals(hint, "APPLE | PEAR");
 	}
 
+	/**
+	 * Le dataSet attend '.name()' (Enum.valueOf), jamais un 'toString()' custom ni un champ
+	 * interne comme 'code' - le catalogue doit montrer exactement ce qui est utilisable dans le
+	 * dataSet, pas la representation "humaine" de l'enum.
+	 */
 	@Test
-	public void describeParameterHintExposesInternalEnumFieldsWithoutRelyingOnToString() throws Exception {
+	public void describeParameterHintUsesEnumNameNeverToStringOrInternalFields() throws Exception {
 		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRichEnum", Status.class));
 
-		Assert.assertEquals(hint, "APPROVED (code=A, weight=1) | REJECTED (code=R, weight=0)");
+		Assert.assertEquals(hint, "APPROVED | REJECTED");
 	}
 
 	@Test
