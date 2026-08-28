@@ -16,8 +16,6 @@ seleniumdemo/
                     ├── server/
                     ├── testdata/
                     ├── tests/
-                    ├── unitaire/
-                    ├── integration/
                     └── utils/
 ```
 
@@ -33,15 +31,6 @@ Selenium, `custom` regroupe le support commun. Le principe général est déjà 
 - `server/` — client et configuration du serveur de variables
 - `testdata/` — chargement des données de test (`JsonParams`, `MapParams`)
 - `tests/` — tests techniques ou de pilotage (le générateur de catalogue, par exemple)
-- `unitaire/` — tests **du moteur lui-même** (pas des campagnes de test produit) : logique
-  pure, aucun réseau ni navigateur, rapide et déterministe. La garantie que
-  `WorkflowVariableScanner`, `JsonScenarioSource`/`ExcelScenarioSource`,
-  `ServerDrivenScenarioTest` etc. font bien ce qu'ils prétendent faire.
-- `integration/` — même esprit que `unitaire/`, mais dépend d'un système réel externe (le
-  serveur de variable en HTTP, par exemple) ; pas de navigateur pour autant. Une classe qui
-  pilote réellement un navigateur contre un vrai site (`WebFormTest`, `MasterWorkflowTest`,
-  `ServerDrivenScenarioTest`...) reste dans `tests`/`custom/tests` — ce n'est pas un test du
-  moteur, c'est le moteur en action.
 - `utils/` — utilitaires transverses sans logique métier
 
 `custom` ne doit jamais devenir une deuxième couche métier déguisée en support technique — le

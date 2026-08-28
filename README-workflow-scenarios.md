@@ -325,8 +325,7 @@ individuelles — c'est voulu, ça évite les scénarios cassés par un mauvais 
 retry par workflow peut se cumuler avec le retry TestNG au niveau du test — un vrai site en
 panne peut prendre plusieurs minutes avant qu'on abandonne.
 
-Le support Excel (types complexes, alias, chaînage) est couvert par des tests unitaires
-(`custom/unitaire/ExcelScenarioSourceTest`) **et** a tourné en conditions réelles avec un vrai
+Le support Excel (types complexes, alias, chaînage) a tourné en conditions réelles avec un vrai
 navigateur, serveur de variable inclus — même scénario chaînage + alias que l'exemple JSON de la
 section 3, prouvé via `.xlsx` : compte bancaire ouvert, numéro extrait, transmis à `hr.full` via
 `${result:b.accountNumber}`, journalisé côté RH.
