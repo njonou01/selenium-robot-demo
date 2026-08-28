@@ -29,7 +29,6 @@ public class ParabankPage extends PageObject {
 	private static final SelectList FROM_ACCOUNT_SELECT = new SelectList("fromAccount", By.id("fromAccountId"));
 	private static final SelectList TO_ACCOUNT_SELECT = new SelectList("toAccount", By.id("toAccountId"));
 	private static final ButtonElement TRANSFER_BUTTON = new ButtonElement("transfer", ByC.attribute("value", "Transfer"));
-	private static final HtmlElement TRANSFER_COMPLETE_HEADER = new HtmlElement("transferComplete", ByC.partialText("Transfer Complete", "*"));
 
 	private static final LinkElement BILL_PAY_MENU = new LinkElement("billPay", By.linkText("Bill Pay"));
 	private static final TextFieldElement PAYEE_NAME_FIELD = new TextFieldElement("payeeName", By.name("payee.name"));
@@ -55,7 +54,6 @@ public class ParabankPage extends PageObject {
 	private static final TextFieldElement LOAN_AMOUNT_FIELD = new TextFieldElement("loanAmount", By.id("amount"));
 	private static final TextFieldElement DOWN_PAYMENT_FIELD = new TextFieldElement("downPayment", By.id("downPayment"));
 	private static final ButtonElement APPLY_LOAN_BUTTON = new ButtonElement("applyLoan", ByC.attribute("value", "Apply Now"));
-	private static final HtmlElement LOAN_STATUS_APPROVED = new HtmlElement("loanStatusApproved", ByC.partialText("Approved", "*"));
 
 	public ParabankPage() throws Exception {
 		super(LOGIN_PANEL, "https://parabank.parasoft.com");
@@ -90,8 +88,9 @@ public class ParabankPage extends PageObject {
 		FROM_ACCOUNT_SELECT.selectByIndex(fromAccountIndex);
 		TO_ACCOUNT_SELECT.selectByIndex(toAccountIndex);
 		TRANSFER_BUTTON.click();
-		Assert.assertTrue(TRANSFER_COMPLETE_HEADER.isDisplayedRetry(),
-			"La confirmation de virement n'est pas affichée");
+		// meme raison que requestLoan(): assertTextPresentInPage plutot que HtmlElement +
+		// ByC.partialText, qui echouait sur cette page malgre un rendu visuellement correct.
+		assertTextPresentInPage("Transfer Complete");
 		return this;
 	}
 
@@ -134,8 +133,11 @@ public class ParabankPage extends PageObject {
 		LOAN_AMOUNT_FIELD.sendKeys(loanAmount);
 		DOWN_PAYMENT_FIELD.sendKeys(downPayment);
 		APPLY_LOAN_BUTTON.click();
-		Assert.assertTrue(LOAN_STATUS_APPROVED.isDisplayedRetry(),
-			"Le prêt n'a pas été approuvé ou la confirmation n'est pas affichée");
+		// 'assertTextPresentInPage' (texte reellement rendu, body.getText().contains(...)) au
+		// lieu d'un HtmlElement+ByC.partialText (XPath contains(text(),...), qui echouait a
+		// chaque run malgre une page confirmee correcte par capture d'ecran - cause exacte non
+		// identifiee avec certitude, mais le texte rendu reste la source de verite la plus fiable.
+		assertTextPresentInPage("your loan has been approved");
 		return this;
 	}
 }

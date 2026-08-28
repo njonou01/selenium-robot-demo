@@ -79,11 +79,17 @@ manuelle en base avant le premier run — vécu concrètement cette session, deu
 pour trouver la bonne version ("1.0" résolu à l'exécution, pas "1.0.0-SNAPSHOT" comme on
 l'attendrait du `pom.xml`).
 
-**Aucune détection de flakiness.** Les runs réels de cette session l'illustrent directement :
-sur plusieurs exécutions, l'approbation de prêt Parabank échoue de façon non déterministe (rien
-à voir avec le code — le même site refuse ou approuve le même prêt selon les essais) — rien
-dans le moteur ne fait aujourd'hui la différence entre "ce site est instable" et "on a cassé
-quelque chose". Chaque échec est traité pareil.
+**Aucune détection de flakiness.** Le moteur ne fait aujourd'hui aucune différence entre "ce
+site est instable" et "on a cassé quelque chose" — chaque échec est traité pareil. Vécu
+concrètement cette session avec un faux positif : `ParabankPage.requestLoan()`/`transferFunds()`
+échouaient à chaque run, attribué d'abord (à tort) à une instabilité du site Parabank, puis à
+une règle métier (fonds insuffisants, aussi à tort). La vraie cause : `ByC.partialText(...)`
+générait un `contains(text(),...)` XPath qui ne trouvait jamais la confirmation, alors que la
+page était correcte à chaque fois (confirmé par capture d'écran). Corrigé en passant à
+`assertTextPresentInPage` (texte réellement rendu, pas de XPath sur les nœuds texte). Sans
+prendre le temps de vérifier avec un vrai screenshot plutôt que de deviner, ce bug réel serait
+resté classé "site capricieux" indéfiniment — exactement le genre d'erreur qu'une détection de
+flakiness bien pensée doit éviter de masquer.
 
 **Pas d'éditeur visuel.** Composer un scénario demande de connaître le format JSON/Excel à la
 main — pas de formulaire généré depuis le catalogue qui garantirait les bons types sans
