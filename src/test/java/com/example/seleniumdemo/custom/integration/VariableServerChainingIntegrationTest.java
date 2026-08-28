@@ -6,10 +6,7 @@ import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.example.seleniumdemo.custom.scenarios.ExcelScenarioSource;
-import com.example.seleniumdemo.custom.scenarios.JsonScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.ScenarioDef;
-import com.example.seleniumdemo.custom.scenarios.ScenarioSource;
 import com.example.seleniumdemo.custom.server.VariableServerClient;
 import com.example.seleniumdemo.custom.server.VariableServerConfig;
 import com.example.seleniumdemo.custom.tests.ServerDrivenScenarioTest;
@@ -38,21 +35,6 @@ public class VariableServerChainingIntegrationTest {
 		return new VariableServerClient(config);
 	}
 
-	/**
-	 * 'workflow.scenarios' peut etre du JSON ou de l'Excel selon l'extension du fichier
-	 * uploade sur le serveur - meme detection que 'ServerDrivenScenarioTest.resolveSource'
-	 * (prive, donc reproduite ici plutot que dupliquee via un couplage a l'implementation).
-	 */
-	private ScenarioSource resolveSource(String fileName) {
-		if (fileName != null) {
-			String lower = fileName.toLowerCase();
-			if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
-				return new ExcelScenarioSource();
-			}
-		}
-		return new JsonScenarioSource();
-	}
-
 	@Test
 	public void fetchesAndParsesRealScenarioVariableFromRunningServer() {
 		VariableServerClient.FetchedVariable payload = client().fetch("workflow.scenarios");
@@ -60,7 +42,7 @@ public class VariableServerChainingIntegrationTest {
 		Assert.assertNotNull(payload.content());
 		Assert.assertTrue(payload.content().length > 0);
 
-		List<ScenarioDef> scenarios = resolveSource(payload.fileName()).parse(payload.content());
+		List<ScenarioDef> scenarios = ServerDrivenScenarioTest.resolveSource(payload.fileName()).parse(payload.content());
 
 		Assert.assertFalse(scenarios.isEmpty(), "le serveur doit renvoyer au moins un scenario");
 		for (ScenarioDef scenario : scenarios) {
@@ -76,7 +58,7 @@ public class VariableServerChainingIntegrationTest {
 	@Test
 	public void realUploadedScenarioPassesFullPreFlightValidation() throws Exception {
 		VariableServerClient.FetchedVariable payload = client().fetch("workflow.scenarios");
-		List<ScenarioDef> scenarios = resolveSource(payload.fileName()).parse(payload.content());
+		List<ScenarioDef> scenarios = ServerDrivenScenarioTest.resolveSource(payload.fileName()).parse(payload.content());
 
 		ServerDrivenScenarioTest.requireUniqueNames("workflow.scenarios", scenarios);
 

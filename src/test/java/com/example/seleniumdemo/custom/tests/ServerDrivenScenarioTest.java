@@ -173,7 +173,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		}
 	}
 
-	private ScenarioSource resolveSource(String fileName) {
+	public static ScenarioSource resolveSource(String fileName) {
 		if (fileName != null) {
 			String lower = fileName.toLowerCase();
 			if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {

@@ -38,11 +38,16 @@ automatique par lecture du source échoue en jar).
 suffixe (`$.`), recherche approximative tolérante aux fautes de frappe (`getFuzzy`, en dépannage
 seulement), extraction de sous-arbre (`getSubtree`).
 
-**55 tests automatisés**, répartis en deux familles nouvelles (`unitaire/`, `integration/`) :
-parsing JSON/Excel et isolation d'erreur, résolution et conversion de types, override par
-workflow, chaînage et alias, validation à sec au niveau orchestration, et un test d'intégration
-HTTP réel contre le serveur de variable. Avant cette session, ce moteur n'avait aucun test
-automatisé — seulement des vérifications manuelles au coup par coup.
+**104 tests automatisés**, répartis en deux familles nouvelles (`custom/unitaire/`,
+`custom/integration/`) : parsing JSON/Excel et isolation d'erreur (y compris des pièges Apache
+POI réels — cellule formule, cellule numérique, cellule BLANK), résolution et conversion de
+types (record imbriqué, tableau, `List<T>`), override par workflow, chaînage et alias,
+validation à sec au niveau orchestration, génération du catalogue (`WorkflowCatalogueGenerator`,
+zéro couverture avant), stabilité de `PageDetector` (mockée, sans navigateur), la branche jar de
+`WorkflowRegistry` (celle qui a eu le vrai bug de `jenkins-jar-fixes.md`), et des tests
+d'intégration HTTP réels contre le serveur de variable (upload, fetch, variable absente, doublon
+de nom, round-trip Excel). Avant cette session, ce moteur n'avait aucun test automatisé —
+seulement des vérifications manuelles au coup par coup.
 
 ## Les bonnes choses
 

@@ -103,7 +103,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 	 * possibles pour un enum, champs pour un record, type d'element pour un tableau/List. Vide
 	 * (String, int, etc.) si le type ne demande pas de precision supplementaire.
 	 */
-	private static String describeParameterHint(Parameter parameter) {
+	public static String describeParameterHint(Parameter parameter) {
 		Class<?> type = parameter.getType();
 		if (type.isEnum()) {
 			return Arrays.stream(type.getEnumConstants()).map(Object::toString).collect(Collectors.joining(" | "));
@@ -122,7 +122,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		return "";
 	}
 
-	private String resolveValue(String field, WorkflowRegistry.Entry entry, boolean stripPlaceholders) {
+	public static String resolveValue(String field, WorkflowRegistry.Entry entry, boolean stripPlaceholders) {
 		String value = COLUMN_EXTRACTORS.get(field).apply(entry);
 		if ("name".equals(field) && stripPlaceholders) {
 			return value.replaceAll("\\s*\\$\\{[^}]*\\}", "").trim();
@@ -133,10 +133,10 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 	private record Styles(XSSFCellStyle header, XSSFCellStyle bodyEven, XSSFCellStyle bodyOdd) {
 	}
 
-	private enum CatalogueLayout {
+	public enum CatalogueLayout {
 		SHEETS, BLOCKS, JSON, MATRIX;
 
-		static CatalogueLayout fromParameter(String raw) {
+		public static CatalogueLayout fromParameter(String raw) {
 			if (raw == null || raw.isBlank()) {
 				return SHEETS;
 			}
@@ -257,7 +257,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		}
 	}
 
-	private List<String> readFields(ITestContext testContext) {
+	public static List<String> readFields(ITestContext testContext) {
 		String raw = testContext.getCurrentXmlTest().getParameter("catalogueFields");
 		List<String> fields = (raw == null || raw.isBlank())
 				? DEFAULT_FIELDS
@@ -272,12 +272,12 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		return fields;
 	}
 
-	private boolean readBooleanParameter(ITestContext testContext, String name, boolean defaultValue) {
+	public static boolean readBooleanParameter(ITestContext testContext, String name, boolean defaultValue) {
 		String raw = testContext.getCurrentXmlTest().getParameter(name);
 		return (raw == null || raw.isBlank()) ? defaultValue : Boolean.parseBoolean(raw.trim());
 	}
 
-	private String baseName(Class<?> clazz) {
+	public static String baseName(Class<?> clazz) {
 		String name = clazz.getSimpleName();
 		return name.endsWith("Workflow") ? name.substring(0, name.length() - "Workflow".length()) : name;
 	}
