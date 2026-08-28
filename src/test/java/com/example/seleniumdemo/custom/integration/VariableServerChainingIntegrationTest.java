@@ -1,4 +1,4 @@
-package com.example.seleniumdemo.integration;
+package com.example.seleniumdemo.custom.integration;
 
 import java.util.List;
 import java.util.Map;

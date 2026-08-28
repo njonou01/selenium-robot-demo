@@ -1,4 +1,4 @@
-package com.example.seleniumdemo.unitaire;
+package com.example.seleniumdemo.custom.unitaire;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.example.seleniumdemo.unitaire;
+package com.example.seleniumdemo.custom.unitaire;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;

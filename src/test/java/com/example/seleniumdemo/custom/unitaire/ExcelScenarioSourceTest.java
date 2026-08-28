@@ -1,4 +1,4 @@
-package com.example.seleniumdemo.unitaire;
+package com.example.seleniumdemo.custom.unitaire;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;

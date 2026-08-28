@@ -323,7 +323,7 @@ que rien ne plante.
 Seuls les workflows complets (`fullXxxFlow`) sont pilotables depuis un scénario, pas les étapes
 individuelles — c'est voulu, ça évite les scénarios cassés par un mauvais ordre d'étapes. Le
 support Excel pour les types complexes (record, tableau, alias en cellule) est couvert par des
-tests unitaires (`unitaire/ExcelScenarioSourceTest`) mais n'a jamais tourné en conditions
+tests unitaires (`custom/unitaire/ExcelScenarioSourceTest`) mais n'a jamais tourné en conditions
 réelles depuis le serveur de variable avec un vrai navigateur — seul le JSON l'a été. Et le
 retry par workflow peut se cumuler avec le retry TestNG au niveau du test — un vrai site en
 panne peut prendre plusieurs minutes avant qu'on abandonne.
