@@ -8,6 +8,8 @@
 - [Framework SeleniumRobot](md/framework.md)
 - [Support du projet](md/support.md)
 - [Scénariser avec JSON ou Excel](md/conventions/scenario.md)
+- [Guide du scénariseur (pourquoi, objectif, paramètres testng.xml)](md/guide-scenariseur.md)
+- [Vision — état des lieux et pistes](md/vision.md)
 - [Pourquoi le rapport custom plantait sur Jenkins (et ce qu'on a durci autour)](md/jenkins-jar-fixes.md)
 
 ## Schémas

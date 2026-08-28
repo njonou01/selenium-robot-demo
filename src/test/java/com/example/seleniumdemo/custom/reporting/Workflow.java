@@ -33,4 +33,14 @@ public @interface Workflow {
 	 * de variable Java.
 	 */
 	String[] params() default {};
+
+	/**
+	 * Noms des variables serveur lues par la methode (ex: {"banking.params"}), en secours de
+	 * la detection automatique par WorkflowVariableScanner.scan() (qui relit le code source
+	 * .java sur disque - absent en execution packagee/jar, ex: Jenkins). Sert uniquement quand
+	 * la detection automatique ne trouve rien: si scan() detecte deja des usages depuis le
+	 * source, cette liste est ignoree. A ne renseigner que si le workflow doit rester
+	 * documente correctement meme execute depuis un jar.
+	 */
+	String[] variables() default {};
 }

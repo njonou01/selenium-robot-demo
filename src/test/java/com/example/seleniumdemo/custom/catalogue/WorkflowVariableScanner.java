@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.json.JSONObject;
@@ -32,6 +34,7 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 
 import com.example.seleniumdemo.custom.reporting.Workflow;
 import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
+import com.example.seleniumdemo.custom.reporting.WorkflowResult;
 
 public final class WorkflowVariableScanner {
 
@@ -141,6 +144,104 @@ public final class WorkflowVariableScanner {
 			return scopedMap.get(key);
 		}
 		return dataSet.get(key);
+	}
+
+	// Groupe 1 gourmand ('.+', pas '[^.}]+') : un code de workflow contient toujours au moins un
+	// point ('banking.full'), donc la coupure code/champ doit se faire sur le DERNIER point, pas
+	// le premier.
+	private static final Pattern RESULT_REFERENCE = Pattern.compile("^\\$\\{result:(.+)\\.([^.}]+)\\}$");
+
+	public static boolean isResultReference(String rawValue) {
+		return RESULT_REFERENCE.matcher(rawValue).matches();
+	}
+
+	/**
+	 * Resout '${result:code.champ}': lit le champ 'champ' (par reflexion sur les
+	 * RecordComponent) du WorkflowResult renvoye par le workflow 'code', deja execute plus tot
+	 * dans le meme scenario. 'results' est local a l'execution du scenario en cours (pas un
+	 * champ partage) - un workflow non encore execute n'y figure simplement pas.
+	 */
+	public static Object resolveResultReference(String rawValue, Map<String, WorkflowResult> results) {
+		Matcher matcher = RESULT_REFERENCE.matcher(rawValue);
+		if (!matcher.matches()) {
+			throw new IllegalStateException("'" + rawValue + "' n'est pas une reference '${result:code.champ}' valide.");
+		}
+		String workflowCode = matcher.group(1);
+		String fieldName = matcher.group(2);
+
+		WorkflowResult result = results.get(workflowCode);
+		if (result == null) {
+			throw new IllegalStateException("'" + rawValue + "': le workflow '" + workflowCode
+					+ "' n'a pas encore ete execute (ou n'a pas renvoye de resultat) a ce stade du scenario.");
+		}
+		return readRecordField(result, fieldName, rawValue);
+	}
+
+	private static Object readRecordField(Object record, String fieldName, String rawValue) {
+		for (RecordComponent component : record.getClass().getRecordComponents()) {
+			if (component.getName().equals(fieldName)) {
+				try {
+					return component.getAccessor().invoke(record);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException("'" + rawValue + "': impossible de lire le champ '" + fieldName
+							+ "' de '" + record.getClass().getSimpleName() + "'.", e);
+				}
+			}
+		}
+		throw new IllegalStateException("'" + rawValue + "': '" + record.getClass().getSimpleName()
+				+ "' n'a pas de champ '" + fieldName + "'. Champs disponibles: "
+				+ Arrays.stream(record.getClass().getRecordComponents()).map(RecordComponent::getName)
+						.collect(Collectors.joining(", ")));
+	}
+
+	/**
+	 * Verifie a sec (avant ouverture du navigateur) qu'une reference '${result:code.champ}' est
+	 * exploitable: le workflow 'code' existe, apparait dans 'steps' AVANT l'etape courante
+	 * (sinon son resultat n'existera pas encore a l'execution), renvoie bien un WorkflowResult,
+	 * et ce type a un champ 'champ'.
+	 */
+	public static void validateResultReference(String rawValue, List<String> steps, int currentStepIndex, Map<String, Method> registry) {
+		Matcher matcher = RESULT_REFERENCE.matcher(rawValue);
+		if (!matcher.matches()) {
+			throw new IllegalStateException("'" + rawValue + "' n'est pas une reference '${result:code.champ}' valide.");
+		}
+		String workflowCode = matcher.group(1);
+		String fieldName = matcher.group(2);
+
+		int referencedIndex = -1;
+		for (int i = 0; i < steps.size(); i++) {
+			if (steps.get(i).trim().equals(workflowCode)) {
+				referencedIndex = i;
+				break;
+			}
+		}
+		if (referencedIndex < 0) {
+			throw new IllegalStateException("'" + rawValue + "' reference le workflow '" + workflowCode
+					+ "', absent de 'steps'.");
+		}
+		if (referencedIndex >= currentStepIndex) {
+			throw new IllegalStateException("'" + rawValue + "' reference le workflow '" + workflowCode
+					+ "' (position " + referencedIndex + " dans 'steps'), qui doit apparaitre AVANT l'etape courante"
+					+ " (position " + currentStepIndex + ") pour que son resultat existe deja.");
+		}
+
+		Method referencedMethod = registry.get(workflowCode);
+		if (referencedMethod == null) {
+			throw new IllegalStateException("'" + rawValue + "' reference le workflow '" + workflowCode
+					+ "', code de workflow inconnu.");
+		}
+		Class<?> returnType = referencedMethod.getReturnType();
+		if (!WorkflowResult.class.isAssignableFrom(returnType)) {
+			throw new IllegalStateException("'" + rawValue + "': le workflow '" + workflowCode
+					+ "' ne renvoie pas de WorkflowResult (type de retour: " + returnType.getSimpleName() + ").");
+		}
+		boolean fieldExists = Arrays.stream(returnType.getRecordComponents()).anyMatch(c -> c.getName().equals(fieldName));
+		if (!fieldExists) {
+			throw new IllegalStateException("'" + rawValue + "': '" + returnType.getSimpleName()
+					+ "' n'a pas de champ '" + fieldName + "'. Champs disponibles: "
+					+ Arrays.stream(returnType.getRecordComponents()).map(RecordComponent::getName)
+							.collect(Collectors.joining(", ")));
+		}
 	}
 
 	/**
@@ -306,7 +407,27 @@ public final class WorkflowVariableScanner {
 				"Valeur '" + rawValue + "' invalide pour un parametre de type " + targetType.getSimpleName() + ".");
 	}
 
+	/**
+	 * Detection automatique par lecture du source .java sur disque - absent en execution
+	 * packagee/jar (Jenkins), auquel cas on retombe sur '@Workflow(variables = {...})' declare
+	 * a la main sur la methode (nom seul, sans Kind/paths - degrade mais au moins non vide).
+	 */
 	public static List<VariableUsage> scan(WorkflowRegistry.Entry entry) {
+		List<VariableUsage> usages = scanSource(entry);
+		if (!usages.isEmpty()) {
+			return usages;
+		}
+
+		Workflow annotation = entry.method().getAnnotation(Workflow.class);
+		String[] declared = annotation == null ? new String[0] : annotation.variables();
+		List<VariableUsage> fallback = new ArrayList<>();
+		for (String name : declared) {
+			fallback.add(new VariableUsage(name, Kind.SIMPLE, Set.of()));
+		}
+		return fallback;
+	}
+
+	private static List<VariableUsage> scanSource(WorkflowRegistry.Entry entry) {
 		File sourceFile = new File("src/test/java/" + entry.declaringClass().getName().replace('.', '/') + ".java");
 		if (!sourceFile.exists()) {
 			return List.of();

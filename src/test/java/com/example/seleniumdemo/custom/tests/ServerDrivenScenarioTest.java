@@ -5,9 +5,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.testng.ITestContext;
 import org.testng.annotations.DataProvider;
@@ -17,6 +19,7 @@ import com.seleniumtests.core.runner.SeleniumTestPlan;
 
 import com.example.seleniumdemo.custom.catalogue.WorkflowVariableScanner;
 import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
+import com.example.seleniumdemo.custom.reporting.WorkflowResult;
 import com.example.seleniumdemo.custom.scenarios.ExcelScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.JsonScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.ScenarioDef;
@@ -47,7 +50,8 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		});
 	}
 
-	private void invoke(Map<Class<?>, Object> workflowInstances, String workflowCode, Method method, Map<String, Object> dataSet) {
+	private void invoke(Map<Class<?>, Object> workflowInstances, String workflowCode, Method method, Map<String, Object> dataSet,
+			Map<String, WorkflowResult> results) {
 		Object[] args;
 		if (method.getParameterCount() == 0) {
 			args = new Object[0];
@@ -63,13 +67,17 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 							+ method.getName() + "' attend le parametre '" + paramName + "', absent du 'dataSet' du scenario ("
 							+ "dataSet disponible: " + (dataSet == null ? "{}" : dataSet.keySet()) + ").");
 				}
+				if (rawValue instanceof String text && WorkflowVariableScanner.isResultReference(text)) {
+					rawValue = WorkflowVariableScanner.resolveResultReference(text, results);
+				}
 				args[i] = WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
 			}
 		}
 
 		Object instance = workflowInstance(workflowInstances, method.getDeclaringClass());
+		Object returnValue;
 		try {
-			method.invoke(instance, args);
+			returnValue = method.invoke(instance, args);
 		} catch (InvocationTargetException e) {
 			if (e.getCause() instanceof RuntimeException runtimeException) {
 				throw runtimeException;
@@ -81,6 +89,10 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		} catch (IllegalAccessException e) {
 			throw new RuntimeException(e);
 		}
+
+		if (returnValue instanceof WorkflowResult workflowResult) {
+			results.put(workflowCode, workflowResult);
+		}
 	}
 
 	/**
@@ -91,7 +103,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 	 * chargement de TOUS les scenarios: un 'dataSet' casse dans le scenario A ne doit pas empecher
 	 * le scenario B (correct) de s'executer.
 	 */
-	private void validateDataSets(List<ScenarioDef> scenarios) throws Exception {
+	public static void validateDataSets(List<ScenarioDef> scenarios, Map<String, String> errorByScenarioName) throws Exception {
 		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
 
 		for (ScenarioDef scenario : scenarios) {
@@ -101,8 +113,10 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 			}
 
 			List<String> problems = new ArrayList<>();
-			for (String code : scenario.steps()) {
-				Method method = registry.get(code.trim());
+			List<String> steps = scenario.steps();
+			for (int stepIndex = 0; stepIndex < steps.size(); stepIndex++) {
+				String code = steps.get(stepIndex).trim();
+				Method method = registry.get(code);
 				if (method == null) {
 					problems.add("code de workflow inconnu '" + code + "'.");
 					continue;
@@ -114,7 +128,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 				Parameter[] parameters = method.getParameters();
 				for (int i = 0; i < dataSetKeys.size(); i++) {
 					String paramName = dataSetKeys.get(i);
-					Object rawValue = WorkflowVariableScanner.resolveRawValue(scenario.dataSet(), code.trim(), paramName);
+					Object rawValue = WorkflowVariableScanner.resolveRawValue(scenario.dataSet(), code, paramName);
 					if (rawValue == null) {
 						problems.add("le workflow '" + code + "' attend le parametre '" + paramName
 								+ "', absent du 'dataSet' (dataSet disponible: "
@@ -122,7 +136,11 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 						continue;
 					}
 					try {
-						WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
+						if (rawValue instanceof String text && WorkflowVariableScanner.isResultReference(text)) {
+							WorkflowVariableScanner.validateResultReference(text, steps, stepIndex, registry);
+						} else {
+							WorkflowVariableScanner.convertDataSetValue(rawValue, parameters[i]);
+						}
 					} catch (RuntimeException e) {
 						problems.add("workflow '" + code + "', parametre '" + paramName + "' - " + e.getMessage());
 					}
@@ -132,6 +150,25 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 			if (!problems.isEmpty()) {
 				errorByScenarioName.put(scenario.name(), "'dataSet' invalide pour le scenario '" + scenario.name()
 						+ "', avant meme d'ouvrir un navigateur:\n" + String.join("\n", problems));
+			}
+		}
+	}
+
+	/**
+	 * 'name' sert de cle dans toutes les maps indexees par scenario (stepsByScenarioName,
+	 * dataSetByScenarioName, ...) et dans le nom du test TestNG genere par le DataProvider: un
+	 * doublon ecraserait silencieusement le premier scenario par le second (meme 'name', meme
+	 * cle) et TestNG afficherait 2 tests identiques dans le rapport, l'un d'eux executant en
+	 * realite les donnees de l'autre. Fatal pour tout le fichier plutot qu'isole par scenario:
+	 * ce n'est pas l'erreur d'UN scenario, c'est une relation entre au moins 2 d'entre eux.
+	 */
+	public static void requireUniqueNames(String variableName, List<ScenarioDef> scenarios) {
+		Set<String> seen = new HashSet<>();
+		for (ScenarioDef scenario : scenarios) {
+			if (!seen.add(scenario.name())) {
+				throw new IllegalStateException("Variable '" + variableName + "': le nom de scenario '" + scenario.name()
+						+ "' apparait plusieurs fois. Chaque scenario doit avoir un nom unique - il sert de cle "
+						+ "dans le rapport et dans l'execution.");
 			}
 		}
 	}
@@ -175,7 +212,8 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 		if (scenarios.isEmpty()) {
 			throw new IllegalStateException("Variable '" + variableName + "' ne contient aucun scenario.");
 		}
-		validateDataSets(scenarios);
+		requireUniqueNames(variableName, scenarios);
+		validateDataSets(scenarios, errorByScenarioName);
 		Object[][] data = new Object[scenarios.size()][1];
 		for (int i = 0; i < scenarios.size(); i++) {
 			ScenarioDef scenario = scenarios.get(i);
@@ -197,6 +235,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 
 		Map<String, Method> registry = WorkflowRegistry.scanMethodsByCode();
 		Map<Class<?>, Object> workflowInstances = new LinkedHashMap<>();
+		Map<String, WorkflowResult> results = new LinkedHashMap<>();
 
 		Map<String, Object> dataSet = dataSetByScenarioName.get(scenarioName);
 
@@ -223,7 +262,7 @@ public class ServerDrivenScenarioTest extends SeleniumTestPlan {
 								+ String.join(", ", registry.keySet()));
 			}
 
-			invoke(workflowInstances, key.trim(), method, dataSet);
+			invoke(workflowInstances, key.trim(), method, dataSet, results);
 		}
 	}
 }

@@ -22,6 +22,7 @@ public class ParabankPage extends PageObject {
 	private static final LinkElement OPEN_NEW_ACCOUNT_MENU = new LinkElement("openNewAccount", By.linkText("Open New Account"));
 	private static final SelectList ACCOUNT_TYPE_SELECT = new SelectList("accountType", By.id("type"));
 	private static final ButtonElement OPEN_ACCOUNT_BUTTON = new ButtonElement("openAccount", ByC.attribute("value", "Open New Account"));
+	private static final HtmlElement NEW_ACCOUNT_ID = new HtmlElement("newAccountId", By.id("newAccountId"));
 
 	private static final LinkElement TRANSFER_MENU = new LinkElement("transfer", By.linkText("Transfer Funds"));
 	private static final TextFieldElement AMOUNT_FIELD = new TextFieldElement("amount", By.id("amount"));
@@ -73,7 +74,13 @@ public class ParabankPage extends PageObject {
 		OPEN_NEW_ACCOUNT_MENU.click();
 		ACCOUNT_TYPE_SELECT.selectByText(accountType);
 		OPEN_ACCOUNT_BUTTON.click();
+		Assert.assertTrue(NEW_ACCOUNT_ID.isDisplayedRetry(),
+			"Le numero du nouveau compte n'est pas affiché");
 		return this;
+	}
+
+	public String getNewAccountNumber() {
+		return NEW_ACCOUNT_ID.getText().trim();
 	}
 
 	@Step(name = "Effectuer virement de ${amount}")

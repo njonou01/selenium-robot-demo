@@ -5,7 +5,8 @@ Comment lancer les tests pilotés par le serveur de variables. Le scénario choi
 touchent jamais directement aux pages.
 
 Ce document couvre le format des scénarios. Pour le détail complet (types de données, override
-par workflow, isolation des erreurs), voir `README-workflow-scenarios.md` à la racine du projet.
+par workflow, isolation des erreurs, chaînage de résultats entre workflows, alias de scénario),
+voir `README-workflow-scenarios.md` à la racine du projet.
 
 ## Quel test lancer
 

@@ -111,7 +111,7 @@ public final class WorkflowRegistry {
 		return indexMethodsByCode(scanEntries());
 	}
 
-	static Map<String, Method> indexMethodsByCode(List<Entry> entries) {
+	public static Map<String, Method> indexMethodsByCode(List<Entry> entries) {
 		validateUniqueCodes(entries);
 
 		Map<String, Method> registry = new LinkedHashMap<>();

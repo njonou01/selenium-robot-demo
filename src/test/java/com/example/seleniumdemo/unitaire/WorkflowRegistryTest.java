@@ -1,10 +1,11 @@
-package com.example.seleniumdemo.custom.reporting;
+package com.example.seleniumdemo.unitaire;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
 import org.testng.annotations.Test;
 
+import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
 import com.example.seleniumdemo.workflows.BankingWorkflow;
 import com.example.seleniumdemo.workflows.EcommerceWorkflow;
 

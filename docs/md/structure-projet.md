@@ -9,6 +9,8 @@ seleniumdemo/
                 ├── tests/
                 ├── workflows/
                 ├── webpage/
+                ├── unitaire/
+                ├── integration/
                 └── custom/
                     ├── catalogue/
                     ├── reporting/
@@ -22,6 +24,16 @@ seleniumdemo/
 `tests` lance les scénarios, `workflows` porte la logique métier, `webpage` fait les actions
 Selenium, `custom` regroupe le support commun. Le principe général est déjà couvert dans
 [`architecture.md`](architecture.md) ; cette page se concentre sur "où mettre quoi" au quotidien.
+
+`unitaire` et `integration` sont à part : pas des campagnes de test produit (contrairement à
+`tests`/`custom/tests`), mais des tests **du moteur lui-même** — la garantie que
+`WorkflowVariableScanner`, `JsonScenarioSource`/`ExcelScenarioSource`, `ServerDrivenScenarioTest`
+etc. font bien ce qu'ils prétendent faire. `unitaire` : logique pure, aucun réseau ni
+navigateur, rapide et déterministe. `integration` : dépend d'un système réel externe (le
+serveur de variable en HTTP, par exemple), pas de navigateur pour autant. Une classe qui pilote
+réellement un navigateur contre un vrai site (`WebFormTest`, `MasterWorkflowTest`,
+`ServerDrivenScenarioTest`...) reste dans `tests`/`custom/tests` — ce n'est pas un test du
+moteur, c'est le moteur en action.
 
 ## Ce que contient `custom/`
 

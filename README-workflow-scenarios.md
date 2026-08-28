@@ -142,7 +142,69 @@ de connexion sont dans des variables à part : `parabank.username`/`parabank.pas
 
 ---
 
-## 3. Le format Excel
+## 3. Chaîner des résultats entre workflows
+
+Un workflow peut avoir besoin d'une donnée produite par un workflow précédent dans le même
+scénario — par exemple le numéro de compte qu'un workflow bancaire vient d'ouvrir, réutilisé
+par un workflow suivant. Pour ça, un workflow déclare un type de retour concret qui implémente
+`WorkflowResult` (un simple marqueur, pas de `Map` générique — le champ référencé est vérifié à
+la compilation Java côté workflow, et par réflexion avant l'exécution côté scénario) :
+
+```java
+public record BankingResult(String accountNumber) implements WorkflowResult {}
+```
+
+Dans le `dataSet`, la valeur `${result:code.champ}` va chercher le champ `champ` du résultat
+renvoyé par le workflow `code`, plus tôt dans la même liste `steps` :
+
+```json
+{
+  "name": "Scenario Bancaire RH",
+  "sinistre": "5EWOOI5B",
+  "steps": ["banking.full", "hr.full"],
+  "dataSet": {
+    "employee": { "firstName": "Robert", "lastName": "Wilson" },
+    "accountNumber": "${result:banking.full.accountNumber}"
+  }
+}
+```
+
+`banking.full` tourne en premier et renvoie un `BankingResult`. `hr.full`, exécuté juste après,
+reçoit `accountNumber` en lisant ce résultat — pas besoin de le mettre sous `dataSet["hr.full"]`
+puisque rien d'autre dans ce scénario n'utilise ce nom de paramètre (même règle de priorité
+qu'un `dataSet` normal, voir section 2).
+
+Vérifié avant même d'ouvrir un navigateur : le workflow référencé doit apparaître **avant**
+dans `steps` (sinon son résultat n'existe pas encore), doit renvoyer un `WorkflowResult`, et ce
+type doit avoir le champ demandé. Une référence vers un workflow qui tourne après, ou vers un
+type qui n'a pas ce champ, échoue avec un message clair — pas une exception obscure en pleine
+exécution.
+
+## 4. Alias de scénario
+
+Optionnel : `aliases` dans un scénario donne un raccourci local à `steps` et aux références
+`${result:...}` de son `dataSet`. Portée à ce seul scénario — les autres n'en savent rien, et
+n'en ont pas besoin s'ils n'en déclarent pas.
+
+```json
+{
+  "name": "Scenario Bancaire RH",
+  "sinistre": "5EWOOI5B",
+  "aliases": { "b": "banking.full", "h": "hr.full" },
+  "steps": ["b", "h"],
+  "dataSet": {
+    "employee": { "firstName": "Robert", "lastName": "Wilson" },
+    "accountNumber": "${result:b.accountNumber}"
+  }
+}
+```
+
+Un alias non déclaré n'est pas une erreur en soi — il ressort simplement comme "code de
+workflow inconnu" au même endroit qu'un vrai code mal écrit, avec la même clarté d'erreur.
+
+---
+
+## 5. Le format Excel
 
 Mêmes idées que le JSON (name, sinistre, sbc, steps, dataSet), mais en colonnes. Un scénario
 occupe un bloc de lignes consécutives :
@@ -178,9 +240,17 @@ consécutives avec le même `scenario_name`) — le fichier échoue au chargemen
 message à l'appui. Une cellule `dataSet` invalide (JSON mal formé dans un fragment, paire sans
 `=`) n'affecte que ce scénario, pas les autres lignes du fichier.
 
+Une 6e colonne optionnelle, `aliases`, porte les alias du bloc au même format que `dataSet`
+(`alias=code,alias=code`) — mêmes règles qu'en JSON (section 4), portée à ce seul bloc :
+
+| scenario_name | sinistre | step | sbc | dataSet | aliases |
+|---|---|---|---|---|---|
+| Scenario Bancaire RH | 5EWOOI5B | b | false | `accountNumber=${result:b.accountNumber}` | `b=banking.full,h=hr.full` |
+| | | h | | | |
+
 ---
 
-## 4. Dans le rapport
+## 6. Dans le rapport
 
 Chaque scénario devient une ligne de test TestNG à part, nommée d'après son `name` ("Scenario
 Complet SBC", par exemple), et chaque workflow de la chaîne apparaît comme une étape imbriquée
@@ -188,7 +258,7 @@ dans le détail du test.
 
 ---
 
-## 5. Pour les devs
+## 7. Pour les devs
 
 `ServerDrivenScenarioTest` récupère `workflow.scenarios` via un `@DataProvider` (JSON ou Excel,
 détecté à l'extension), valide chaque scénario à sec, puis lance une exécution TestNG par
@@ -220,6 +290,14 @@ par exemple). Il attend qu'une seule candidate reste visible sur plusieurs contr
 avant de trancher, pour ne pas se faire piéger par l'instant où deux pages semblent visibles en
 même temps pendant une transition.
 
+Le chaînage de résultats (`${result:code.champ}`, section 3) et les alias (section 4) sont
+résolus à deux moments différents : les alias au parsing (`JsonScenarioSource`/
+`ExcelScenarioSource`, avant même la construction du `ScenarioDef` — le reste du moteur ne sait
+pas qu'un alias a existé), le chaînage à l'exécution (`ServerDrivenScenarioTest.invoke()`, une
+`Map<String, WorkflowResult>` locale à l'exécution du scénario capture le retour de chaque
+workflow au fur et à mesure). La validation à sec (avant navigateur) vérifie quand même l'ordre
+et le type de retour du workflow référencé — `WorkflowVariableScanner.validateResultReference`.
+
 ### Ajouter un nouveau workflow pilotable
 
 Il suffit d'ajouter `code = "monsite.full"` sur l'annotation `@Workflow` de la méthode
@@ -230,11 +308,22 @@ Si le site a besoin de données propres indépendantes du scénario, on crée un
 changer : la classe est déjà repérée par scan du package `workflows`, et le catalogue se met à
 jour tout seul au run suivant.
 
+Pour qu'un workflow puisse être chaîné (section 3), sa méthode `fullXxxFlow` renvoie un record
+qui implémente `WorkflowResult` (`com.example.seleniumdemo.custom.reporting.WorkflowResult`,
+marqueur pur) au lieu de `void` — voir `BankingResult`/`BankingWorkflow.fullBankingFlow()` pour
+un exemple réel. Un workflow qui n'a rien à transmettre reste en `void`, rien à ajouter.
+
+Si l'exécution en jar packagé (Jenkins) doit garder la colonne "Variables serveur" du catalogue
+renseignée pour ce workflow, ajouter `@Workflow(variables = {"monsite.params"})` — sinon la
+détection automatique (qui relit le source `.java`, absent en jar) laisse la colonne vide sans
+que rien ne plante.
+
 ### Ce qui ne marche pas encore / limites connues
 
 Seuls les workflows complets (`fullXxxFlow`) sont pilotables depuis un scénario, pas les étapes
 individuelles — c'est voulu, ça évite les scénarios cassés par un mauvais ordre d'étapes. Le
-support Excel pour les types complexes (record ou tableau en cellule) est écrit mais n'a été
-vérifié qu'en JSON, jamais par un run réel en Excel. Et le retry par workflow peut se cumuler
-avec le retry TestNG au niveau du test — un vrai site en panne peut prendre plusieurs minutes
-avant qu'on abandonne.
+support Excel pour les types complexes (record, tableau, alias en cellule) est couvert par des
+tests unitaires (`unitaire/ExcelScenarioSourceTest`) mais n'a jamais tourné en conditions
+réelles depuis le serveur de variable avec un vrai navigateur — seul le JSON l'a été. Et le
+retry par workflow peut se cumuler avec le retry TestNG au niveau du test — un vrai site en
+panne peut prendre plusieurs minutes avant qu'on abandonne.

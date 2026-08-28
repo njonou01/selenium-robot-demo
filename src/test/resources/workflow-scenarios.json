@@ -13,7 +13,8 @@
       "employee": {
         "firstName": "Robert",
         "lastName": "Wilson"
-      }
+      },
+      "accountNumber": "${result:banking.full.accountNumber}"
     }
   },
   {
@@ -30,7 +31,8 @@
       "employee": {
         "firstName": "Robert",
         "lastName": "Wilson"
-      }
+      },
+      "accountNumber": "${result:banking.full.accountNumber}"
     }
   }
 ]

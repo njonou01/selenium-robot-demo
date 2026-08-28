@@ -40,6 +40,7 @@ public class ExcelScenarioSource implements ScenarioSource {
 			String currentSinistre = null;
 			boolean currentSbc = false;
 			Map<String, Object> currentDataSet = Map.of();
+			Map<String, String> currentAliases = Map.of();
 			for (Row row : sheet) {
 				if (row.getRowNum() <= headerRow) {
 					continue;
@@ -49,6 +50,7 @@ public class ExcelScenarioSource implements ScenarioSource {
 				String step = stringValue(row.getCell(2), formatter, evaluator);
 				String sbc = stringValue(row.getCell(3), formatter, evaluator);
 				String dataSet = stringValue(row.getCell(4), formatter, evaluator);
+				String aliasesCell = stringValue(row.getCell(5), formatter, evaluator);
 
 				if (name != null && !name.isBlank()) {
 					if (!name.equals(currentScenario) && stepsByScenario.containsKey(name)) {
@@ -60,11 +62,13 @@ public class ExcelScenarioSource implements ScenarioSource {
 					currentSinistre = sinistre;
 					currentSbc = "true".equalsIgnoreCase(sbc) || "1".equals(sbc) || "oui".equalsIgnoreCase(sbc);
 					try {
-						currentDataSet = parseDataSet(dataSet);
+						currentAliases = parseAliases(aliasesCell);
+						currentDataSet = ScenarioAliasResolver.resolveDataSet(parseDataSet(dataSet), currentAliases);
 					} catch (Exception e) {
 						poisonByScenario.put(currentScenario, "Scenario '" + currentScenario
 								+ "' illisible dans la feuille Excel 'workflow.scenarios': " + e.getMessage());
 						currentDataSet = Map.of();
+						currentAliases = Map.of();
 					}
 				}
 				if (currentScenario == null) {
@@ -78,7 +82,8 @@ public class ExcelScenarioSource implements ScenarioSource {
 				sinistreByScenario.putIfAbsent(currentScenario, currentSinistre);
 				sbcByScenario.putIfAbsent(currentScenario, currentSbc);
 				dataSetByScenario.putIfAbsent(currentScenario, currentDataSet);
-				stepsByScenario.computeIfAbsent(currentScenario, k -> new ArrayList<>()).add(step);
+				String resolvedStep = currentAliases.getOrDefault(step, step);
+				stepsByScenario.computeIfAbsent(currentScenario, k -> new ArrayList<>()).add(resolvedStep);
 			}
 
 			List<ScenarioDef> scenarios = new ArrayList<>();
@@ -138,6 +143,29 @@ public class ExcelScenarioSource implements ScenarioSource {
 			dataSet.put(key, parseDataSetValue(rawFieldValue));
 		}
 		return dataSet;
+	}
+
+	/**
+	 * Parse une cellule 'aliases' au format "alias=code,alias=code,...", meme convention de
+	 * separateur que 'dataSet'. Optionnelle - cellule vide/absente = aucun alias pour ce bloc.
+	 */
+	private Map<String, String> parseAliases(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return Map.of();
+		}
+		Map<String, String> aliases = new LinkedHashMap<>();
+		for (String pair : splitTopLevel(raw, ',')) {
+			if (pair.isBlank()) {
+				continue;
+			}
+			int equalIndex = pair.indexOf('=');
+			if (equalIndex < 0) {
+				throw new IllegalStateException(
+						"Feuille Excel 'workflow.scenarios': paire 'aliases' invalide (attendu alias=code): '" + pair.trim() + "'");
+			}
+			aliases.put(pair.substring(0, equalIndex).trim(), pair.substring(equalIndex + 1).trim());
+		}
+		return aliases;
 	}
 
 	private Object parseDataSetValue(String rawFieldValue) {

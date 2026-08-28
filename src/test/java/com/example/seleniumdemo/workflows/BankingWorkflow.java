@@ -20,8 +20,9 @@ public class BankingWorkflow {
 	}
 
 	@Workflow(name = "Étape 2: Ouvrir un nouveau compte")
-	public void step2_openNewAccount() throws Exception {
+	public String step2_openNewAccount() throws Exception {
 		page.get().openNewAccount("CHECKING");
+		return page.get().getNewAccountNumber();
 	}
 
 	@Workflow(name = "Étape 3: Effectuer virement de ${amount}")
@@ -50,17 +51,19 @@ public class BankingWorkflow {
 	}
 
 	@Workflow(name = "Workflow bancaire complet et long", code = "banking.full")
-	public void fullBankingFlow() throws Exception {
+	public BankingResult fullBankingFlow() throws Exception {
 		String username = PageObject.param("parabank.username");
 		String password = PageObject.param("parabank.password");
 		JsonParams params = JsonParams.load("banking.params");
 
 		step1_login(username, password);
-		step2_openNewAccount();
+		String accountNumber = step2_openNewAccount();
 		step3_transfer(0, 1, params.get("transfer.amount"));
 		step4_payBill(params.get("payBill.payeeName"), params.get("payBill.accountNumber"), params.get("payBill.amount"));
 		step5_findTransaction(params.get("findTransaction.amount"));
 		step6_updateContact(params.get("updateContact.phone"));
 		step7_requestLoan(params.get("requestLoan.loanAmount"), params.get("requestLoan.downPayment"));
+
+		return new BankingResult(accountNumber);
 	}
 }

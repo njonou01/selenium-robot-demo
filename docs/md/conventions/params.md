@@ -54,8 +54,11 @@ Ordre de recherche :
 1. mêmes règles que `get(path)` (exact, puis `$.suffixe`) ;
 2. correspondance insensible à la casse sur le dernier segment (`Nom` → `assure.nom`) ;
 3. correspondance par sous-chaîne (`nomAssure` trouve `assure.nomAssure`) ;
-4. similarité Jaro-Winkler sur le dernier segment, seuil `0.85` — tolère une faute de frappe
-   (`asure.nom` peut retrouver `assure.nom`).
+4. similarité Jaro-Winkler entre le chemin cherché et le dernier segment d'une clé, seuil
+   `0.85` — tolère une faute de frappe sur un identifiant simple, sans point (`nomm` peut
+   retrouver `assure.nom`). Un chemin pointé complet avec une faute dans un segment
+   intermédiaire (`asure.nom`) ne matche pas ici : le score se calcule contre le chemin entier,
+   pas segment par segment, donc il chute trop vite dès que le chemin a plusieurs segments.
 
 Si rien ne dépasse le seuil, exception explicite ("introuvable même en recherche floue").
 
