@@ -158,4 +158,67 @@ public class ExcelScenarioSourceTest {
 		Assert.assertNotNull(casse.parseError());
 		Assert.assertNull(ok.parseError());
 	}
+
+	/**
+	 * Piege classique POI: sur une cellule FORMULE, 'DataFormatter.formatCellValue()' ne
+	 * renvoie la valeur CALCULEE que si on lui passe un 'FormulaEvaluator' non nul - sinon on
+	 * recupere la formule elle-meme telle quelle ("=CONCATENATE(...)"). 'ExcelScenarioSource'
+	 * passe bien l'evaluator (constaté a la lecture du code) ; ce test le prouve en executant.
+	 */
+	@Test
+	public void formulaCellIsEvaluatedNotReturnedAsRawFormulaText() throws Exception {
+		XSSFWorkbook workbook = newWorkbookWithHeader();
+		XSSFSheet sheet = workbook.getSheetAt(0);
+
+		XSSFRow row1 = sheet.createRow(1);
+		row1.createCell(0).setCellValue("Scenario Formule");
+		row1.createCell(1).setCellFormula("CONCATENATE(\"AUTO-\",\"2026\")");
+		row1.createCell(2).setCellValue("step.a");
+
+		ScenarioDef scenario = new ExcelScenarioSource().parse(toBytes(workbook)).get(0);
+
+		Assert.assertEquals(scenario.sinistre(), "AUTO-2026",
+				"la cellule formule doit etre evaluee, pas renvoyee comme texte de formule brut");
+	}
+
+	/**
+	 * Une cellule numerique (type NUMERIC, pas STRING) pour une colonne texte doit rester
+	 * lisible telle qu'affichee dans Excel - pas de notation scientifique ni de ".0" parasite
+	 * qu'on peut avoir en castant un double en String a la main.
+	 */
+	@Test
+	public void numericCellTypeIsReadAsPlainDisplayedString() throws Exception {
+		XSSFWorkbook workbook = newWorkbookWithHeader();
+		XSSFSheet sheet = workbook.getSheetAt(0);
+
+		XSSFRow row1 = sheet.createRow(1);
+		row1.createCell(0).setCellValue("Scenario Numerique");
+		row1.createCell(1).setCellValue(20260828);
+		row1.createCell(2).setCellValue("step.a");
+
+		ScenarioDef scenario = new ExcelScenarioSource().parse(toBytes(workbook)).get(0);
+
+		Assert.assertEquals(scenario.sinistre(), "20260828",
+				"une cellule numerique entiere ne doit pas devenir '2.0260828E7' ou '20260828.0'");
+	}
+
+	/**
+	 * Une ligne dont la cellule 'step' est BLANK (jamais ecrite, pas juste une chaine vide) ne
+	 * doit pas etre confondue avec une fin de bloc ou planter la lecture - simplement ignoree,
+	 * comme une chaine vide.
+	 */
+	@Test
+	public void blankCellTypeIsTreatedLikeAbsentValue() throws Exception {
+		XSSFWorkbook workbook = newWorkbookWithHeader();
+		XSSFSheet sheet = workbook.getSheetAt(0);
+
+		XSSFRow row1 = sheet.createRow(1);
+		row1.createCell(0).setCellValue("Scenario Blank");
+		row1.createCell(2).setCellValue("step.a");
+		row1.createCell(3);
+
+		ScenarioDef scenario = new ExcelScenarioSource().parse(toBytes(workbook)).get(0);
+
+		Assert.assertFalse(scenario.sbc(), "cellule 'sbc' BLANK (jamais ecrite) doit se comporter comme absente/false");
+	}
 }

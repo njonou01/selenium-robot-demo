@@ -25,6 +25,10 @@ l'extension, avec :
   records typés — pas de `Map` générique) ;
 - alias de scénario optionnels, portée à un seul scénario, JSON et Excel.
 
+Chaînage et alias prouvés en conditions réelles (navigateur, serveur de variable réel), **dans
+les deux formats** : `banking.full` ouvre un vrai compte Parabank, extrait le vrai numéro, le
+transmet à `hr.full` via l'alias `b`→`banking.full` — identique en JSON et en `.xlsx`.
+
 **Catalogue auto-généré**, jamais tenu à la main : `WorkflowCatalogueGenerator` scanne les
 classes `*Workflow`, produit 4 formats de sortie (`sheets`/`blocks`/`json`/`matrix`), et reste
 lisible même en exécution packagée (repli `@Workflow(variables = {...})` quand la détection
@@ -75,15 +79,11 @@ manuelle en base avant le premier run — vécu concrètement cette session, deu
 pour trouver la bonne version ("1.0" résolu à l'exécution, pas "1.0.0-SNAPSHOT" comme on
 l'attendrait du `pom.xml`).
 
-**Le support Excel des types complexes n'a jamais tourné en conditions réelles.** Couvert par
-des tests unitaires maintenant (parsing en mémoire, déterministe), mais jamais prouvé par un
-vrai run contre le serveur de variable avec un navigateur — seul le JSON l'a été, à plusieurs
-reprises.
-
-**Aucune détection de flakiness.** Le run réel de cette session l'illustre directement : deux
-échecs (confirmation de virement, approbation de prêt) qui tiennent au site public Parabank lui
-plus qu'à une régression du code — rien dans le moteur ne fait aujourd'hui la différence entre
-"ce site est instable" et "on a cassé quelque chose". Chaque échec est traité pareil.
+**Aucune détection de flakiness.** Les runs réels de cette session l'illustrent directement :
+sur plusieurs exécutions, l'approbation de prêt Parabank échoue de façon non déterministe (rien
+à voir avec le code — le même site refuse ou approuve le même prêt selon les essais) — rien
+dans le moteur ne fait aujourd'hui la différence entre "ce site est instable" et "on a cassé
+quelque chose". Chaque échec est traité pareil.
 
 **Pas d'éditeur visuel.** Composer un scénario demande de connaître le format JSON/Excel à la
 main — pas de formulaire généré depuis le catalogue qui garantirait les bons types sans

@@ -28,3 +28,23 @@ doit pouvoir reconstituer à la lecture du rapport, sans aller fouiller le code 
 tourné, quel workflow a été appelé, quelle donnée a été utilisée, où ça a cassé, et si le souci
 vient du métier, de l'UI, ou de la configuration. Le nom de la page et le label des éléments sont
 ce qui rend ça possible ou pas — voir [`conventions/page.md`](conventions/page.md).
+
+### Le rapport custom
+
+Le rapport HTML par défaut de seleniumRobot vient avec sa propre mise en forme (AdminLTE). Le
+projet en a une version repeinte — mêmes données, même structure, habillage visuel propre : une
+barre de navigation dédiée, une charte de couleurs cohérente, la police forcée en clair (jamais
+de bascule sombre selon le système du lecteur), un correctif explicite sur un défaut d'AdminLTE
+qui limitait la hauteur de l'en-tête et forçait une police cursive peu lisible sur les cartes de
+statut.
+
+Activé par le paramètre `customReport` (`true`/`false`) dans le XML de suite — désactivé, le
+rapport standard du framework s'affiche sans rien de custom. 3 gabarits Velocity sont remplacés :
+`report.test.vm` (page de détail d'un test), `report.part.suiteSummary.vm` (page de résumé de
+suite), `fonts.part.vm` (police Inter embarquée en base64 — le rapport reste lisible et bien mis
+en forme même ouvert sans connexion internet ou hors de son dossier de sortie standard).
+
+Techniquement, c'est `CustomReportListener` qui bascule le classloader du thread courant vers un
+dossier temporaire contenant ces 3 gabarits, avant que le framework ne génère le rapport — voir
+[`jenkins-jar-fixes.md`](jenkins-jar-fixes.md) pour l'incident qui a façonné cette implémentation
+(et pourquoi elle marche identiquement en local et en jar packagé).

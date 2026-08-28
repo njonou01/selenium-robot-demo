@@ -6,8 +6,10 @@ import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.example.seleniumdemo.custom.scenarios.ExcelScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.JsonScenarioSource;
 import com.example.seleniumdemo.custom.scenarios.ScenarioDef;
+import com.example.seleniumdemo.custom.scenarios.ScenarioSource;
 import com.example.seleniumdemo.custom.server.VariableServerClient;
 import com.example.seleniumdemo.custom.server.VariableServerConfig;
 import com.example.seleniumdemo.custom.tests.ServerDrivenScenarioTest;
@@ -16,10 +18,11 @@ import com.example.seleniumdemo.custom.tests.ServerDrivenScenarioTest;
  * Integration reelle avec le serveur de variable (HTTP, pas de bouchon): a besoin d'un serveur
  * seleniumRobot-server qui tourne sur 'seleniumRobotServerUrl' (localhost:8000 par defaut) avec
  * l'application 'seleniumdemo' / version '1.0' / environnement 'DEV' deja enregistres, du token
- * dans 'SELENIUM_ROBOT_SERVER_TOKEN', et la variable 'workflow.scenarios' deja uploadee (fichier
- * JSON). Pas de navigateur ici - seulement la couche HTTP + parsing + resolution alias/chainage,
- * jusqu'a la validation a sec (avant ouverture d'un navigateur). La preuve navigateur reelle
- * (chainage effectivement recu et logue cote HRWorkflow) a ete faite manuellement, voir le bilan
+ * dans 'SELENIUM_ROBOT_SERVER_TOKEN', et la variable 'workflow.scenarios' deja uploadee (JSON ou
+ * Excel, detecte a l'extension comme en production). Pas de navigateur ici - seulement la couche
+ * HTTP + parsing + resolution alias/chainage, jusqu'a la validation a sec (avant ouverture d'un
+ * navigateur). La preuve navigateur reelle (chainage effectivement recu et logue cote HRWorkflow,
+ * en JSON et en Excel) a ete faite manuellement, voir le bilan
  * de session.
  */
 public class VariableServerChainingIntegrationTest {
@@ -35,6 +38,21 @@ public class VariableServerChainingIntegrationTest {
 		return new VariableServerClient(config);
 	}
 
+	/**
+	 * 'workflow.scenarios' peut etre du JSON ou de l'Excel selon l'extension du fichier
+	 * uploade sur le serveur - meme detection que 'ServerDrivenScenarioTest.resolveSource'
+	 * (prive, donc reproduite ici plutot que dupliquee via un couplage a l'implementation).
+	 */
+	private ScenarioSource resolveSource(String fileName) {
+		if (fileName != null) {
+			String lower = fileName.toLowerCase();
+			if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+				return new ExcelScenarioSource();
+			}
+		}
+		return new JsonScenarioSource();
+	}
+
 	@Test
 	public void fetchesAndParsesRealScenarioVariableFromRunningServer() {
 		VariableServerClient.FetchedVariable payload = client().fetch("workflow.scenarios");
@@ -42,7 +60,7 @@ public class VariableServerChainingIntegrationTest {
 		Assert.assertNotNull(payload.content());
 		Assert.assertTrue(payload.content().length > 0);
 
-		List<ScenarioDef> scenarios = new JsonScenarioSource().parse(payload.content());
+		List<ScenarioDef> scenarios = resolveSource(payload.fileName()).parse(payload.content());
 
 		Assert.assertFalse(scenarios.isEmpty(), "le serveur doit renvoyer au moins un scenario");
 		for (ScenarioDef scenario : scenarios) {
@@ -58,7 +76,7 @@ public class VariableServerChainingIntegrationTest {
 	@Test
 	public void realUploadedScenarioPassesFullPreFlightValidation() throws Exception {
 		VariableServerClient.FetchedVariable payload = client().fetch("workflow.scenarios");
-		List<ScenarioDef> scenarios = new JsonScenarioSource().parse(payload.content());
+		List<ScenarioDef> scenarios = resolveSource(payload.fileName()).parse(payload.content());
 
 		ServerDrivenScenarioTest.requireUniqueNames("workflow.scenarios", scenarios);
 
