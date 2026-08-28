@@ -4,11 +4,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -100,11 +101,32 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 
 	/**
 	 * Indice affiche entre parentheses a cote du nom du parametre dans le catalogue: valeurs
-	 * possibles pour un enum, champs pour un record, type d'element pour un tableau/List. Vide
-	 * (String, int, etc.) si le type ne demande pas de precision supplementaire.
+	 * possibles pour un enum, champs pour un record (recursif - un champ record/enum/tableau
+	 * imbrique est lui-meme decrit), type d'element pour un tableau/List (recursif aussi), format
+	 * attendu pour une date. Vide (String, int, etc.) si le type ne demande pas de precision.
+	 *
+	 * Chaque nom affiche est celui que le dataSet attend reellement - le mapping nom metier
+	 * declare via '@Workflow(params = {"nomMetier=cheminJava"})' est applique aux champs de
+	 * record (meme resolution que 'WorkflowVariableScanner.convertDataSetValue', pour ne jamais
+	 * afficher un nom Java brut la ou le dataSet exige le nom metier).
 	 */
 	public static String describeParameterHint(Parameter parameter) {
-		Class<?> type = parameter.getType();
+		Method method = (Method) parameter.getDeclaringExecutable();
+		Map<String, String> javaPathToBusiness = WorkflowVariableScanner.parseParamsMapping(method);
+		String javaPath = parameter.getName();
+
+		if (List.class.isAssignableFrom(parameter.getType())) {
+			if (parameter.getParameterizedType() instanceof ParameterizedType parameterizedType
+					&& parameterizedType.getActualTypeArguments().length == 1
+					&& parameterizedType.getActualTypeArguments()[0] instanceof Class<?> componentType) {
+				return "liste de " + describeElementType(componentType, javaPathToBusiness, javaPath + "[]");
+			}
+			return "";
+		}
+		return describeType(parameter.getType(), javaPathToBusiness, javaPath);
+	}
+
+	private static String describeType(Class<?> type, Map<String, String> javaPathToBusiness, String javaPath) {
 		if (type.isEnum()) {
 			// '.name()', jamais 'toString()': c'est le nom brut de la constante que
 			// 'WorkflowVariableScanner.convertDataSetValue' attend dans le dataSet
@@ -114,17 +136,31 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 					.collect(Collectors.joining(" | "));
 		}
 		if (type.isRecord()) {
-			return "record: " + Arrays.stream(type.getRecordComponents())
-					.map(RecordComponent::getName).collect(Collectors.joining(", "));
+			String fields = Arrays.stream(type.getRecordComponents()).map(component -> {
+				String componentPath = javaPath + "." + component.getName();
+				String label = javaPathToBusiness.getOrDefault(componentPath, component.getName());
+				String nested = describeType(component.getType(), javaPathToBusiness, componentPath);
+				return nested.isEmpty() ? label : label + " (" + nested + ")";
+			}).collect(Collectors.joining(", "));
+			return "record: " + fields;
 		}
 		if (type.isArray()) {
-			return "tableau de " + type.getComponentType().getSimpleName();
+			return "tableau de " + describeElementType(type.getComponentType(), javaPathToBusiness, javaPath + "[]");
 		}
-		if (List.class.isAssignableFrom(type) && parameter.getParameterizedType() instanceof ParameterizedType parameterizedType
-				&& parameterizedType.getActualTypeArguments().length == 1) {
-			return "liste de " + ((Class<?>) parameterizedType.getActualTypeArguments()[0]).getSimpleName();
+		if (type == LocalDate.class) {
+			return "format AAAA-MM-JJ";
 		}
 		return "";
+	}
+
+	/**
+	 * Type d'element d'un tableau/List: nom simple de la classe, avec sa propre description
+	 * entre parentheses si l'element est lui-meme enum/record/tableau (List<List<T>> pas geree -
+	 * pas supportee par 'convertDataSetValue' non plus, aucune raison de le laisser croire ici).
+	 */
+	private static String describeElementType(Class<?> componentType, Map<String, String> javaPathToBusiness, String javaPath) {
+		String nested = describeType(componentType, javaPathToBusiness, javaPath);
+		return nested.isEmpty() ? componentType.getSimpleName() : componentType.getSimpleName() + " (" + nested + ")";
 	}
 
 	public static String resolveValue(String field, WorkflowRegistry.Entry entry, boolean stripPlaceholders) {

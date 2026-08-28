@@ -11,6 +11,7 @@ import org.testng.xml.XmlSuite;
 import org.testng.xml.XmlTest;
 
 import com.example.seleniumdemo.custom.catalogue.WorkflowCatalogueGenerator;
+import com.example.seleniumdemo.custom.reporting.Workflow;
 import com.example.seleniumdemo.custom.reporting.WorkflowRegistry;
 import com.example.seleniumdemo.workflows.BankingWorkflow;
 import com.example.seleniumdemo.workflows.ElectronicsWorkflow;
@@ -42,6 +43,12 @@ public class WorkflowCatalogueGeneratorTest {
 	public record Point(int x, int y) {
 	}
 
+	public record Employee(String firstName, String lastName) {
+	}
+
+	public record Claim(String reference, Status status) {
+	}
+
 	static class Fixture {
 		public void withEnum(Fruit fruit) {
 		}
@@ -52,10 +59,27 @@ public class WorkflowCatalogueGeneratorTest {
 		public void withRecord(Point point) {
 		}
 
+		// mapping declare sur le champ Java 'firstName' du record - le hint doit afficher
+		// 'prenom', pas 'firstName', puisque c'est ce que le dataSet attend reellement.
+		@Workflow(params = { "prenom=employee.firstName" })
+		public void withMappedRecordField(Employee employee) {
+		}
+
+		// enum imbriquee dans un record - le hint doit recurser et lister ses valeurs, pas
+		// juste dire "record: reference, status" sans dire ce que 'status' accepte.
+		public void withRecordContainingEnum(Claim claim) {
+		}
+
 		public void withArray(String[] items) {
 		}
 
+		public void withArrayOfEnum(Status[] items) {
+		}
+
 		public void withList(java.util.List<String> items) {
+		}
+
+		public void withDate(java.time.LocalDate date) {
 		}
 
 		public void withPlainString(String value) {
@@ -90,6 +114,45 @@ public class WorkflowCatalogueGeneratorTest {
 		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRecord", Point.class));
 
 		Assert.assertEquals(hint, "record: x, y");
+	}
+
+	/**
+	 * Le champ Java 'firstName' est mappe vers le nom metier 'prenom' via
+	 * '@Workflow(params = {"prenom=employee.firstName"})' - c'est 'prenom' que le dataSet
+	 * attend reellement (WorkflowVariableScanner.convertDataSetValue fait la meme resolution),
+	 * le catalogue doit montrer ca, pas le nom Java brut.
+	 */
+	@Test
+	public void describeParameterHintUsesBusinessNameForMappedRecordField() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withMappedRecordField", Employee.class));
+
+		Assert.assertEquals(hint, "record: prenom, lastName");
+	}
+
+	/**
+	 * Un champ record qui est lui-meme un enum doit etre decrit recursivement (ses valeurs
+	 * valides), pas juste liste par son nom - sinon le catalogue dit "il y a un champ status"
+	 * sans dire ce qu'on peut y mettre.
+	 */
+	@Test
+	public void describeParameterHintRecursesIntoEnumFieldInsideRecord() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRecordContainingEnum", Claim.class));
+
+		Assert.assertEquals(hint, "record: reference, status (APPROVED | REJECTED)");
+	}
+
+	@Test
+	public void describeParameterHintRecursesIntoArrayOfEnum() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withArrayOfEnum", Status[].class));
+
+		Assert.assertEquals(hint, "tableau de Status (APPROVED | REJECTED)");
+	}
+
+	@Test
+	public void describeParameterHintShowsExpectedDateFormat() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withDate", java.time.LocalDate.class));
+
+		Assert.assertEquals(hint, "format AAAA-MM-JJ");
 	}
 
 	@Test

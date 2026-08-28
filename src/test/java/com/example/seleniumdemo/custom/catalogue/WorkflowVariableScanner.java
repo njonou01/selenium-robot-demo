@@ -93,7 +93,7 @@ public final class WorkflowVariableScanner {
 	 * (niveau parametre) et convertDataSetValue (niveau champ de record) pour eviter 2 lectures
 	 * divergentes de la meme annotation.
 	 */
-	private static Map<String, String> parseParamsMapping(Method method) {
+	public static Map<String, String> parseParamsMapping(Method method) {
 		Workflow annotation = method.getAnnotation(Workflow.class);
 		String[] rawMappings = annotation == null ? new String[0] : annotation.params();
 		Map<String, String> javaPathToBusiness = new LinkedHashMap<>();
