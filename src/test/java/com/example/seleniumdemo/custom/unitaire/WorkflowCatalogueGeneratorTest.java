@@ -21,11 +21,29 @@ public class WorkflowCatalogueGeneratorTest {
 		APPLE, PEAR
 	}
 
+	// Pas de 'toString()' override volontairement: 'describeParameterHint' doit lire 'code' et
+	// 'weight' par reflexion, jamais via toString() (sinon ces champs restent invisibles des
+	// qu'un dev oublie l'override).
+	public enum Status {
+		APPROVED("A", 1), REJECTED("R", 0);
+
+		private final String code;
+		private final int weight;
+
+		Status(String code, int weight) {
+			this.code = code;
+			this.weight = weight;
+		}
+	}
+
 	public record Point(int x, int y) {
 	}
 
 	static class Fixture {
 		public void withEnum(Fruit fruit) {
+		}
+
+		public void withRichEnum(Status status) {
 		}
 
 		public void withRecord(Point point) {
@@ -50,6 +68,13 @@ public class WorkflowCatalogueGeneratorTest {
 		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withEnum", Fruit.class));
 
 		Assert.assertEquals(hint, "APPLE | PEAR");
+	}
+
+	@Test
+	public void describeParameterHintExposesInternalEnumFieldsWithoutRelyingOnToString() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRichEnum", Status.class));
+
+		Assert.assertEquals(hint, "APPROVED (code=A, weight=1) | REJECTED (code=R, weight=0)");
 	}
 
 	@Test

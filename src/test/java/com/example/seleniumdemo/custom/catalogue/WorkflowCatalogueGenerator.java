@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
@@ -106,7 +107,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 	public static String describeParameterHint(Parameter parameter) {
 		Class<?> type = parameter.getType();
 		if (type.isEnum()) {
-			return Arrays.stream(type.getEnumConstants()).map(Object::toString).collect(Collectors.joining(" | "));
+			return describeEnumConstants(type);
 		}
 		if (type.isRecord()) {
 			return "record: " + Arrays.stream(type.getRecordComponents())
@@ -120,6 +121,37 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			return "liste de " + ((Class<?>) parameterizedType.getActualTypeArguments()[0]).getSimpleName();
 		}
 		return "";
+	}
+
+	/**
+	 * Liste chaque constante avec ses champs internes (nom=valeur), lus par reflexion - jamais
+	 * via 'toString()'. Un enum "riche" (ex: un champ 'code' different du nom Java de la
+	 * constante) doit rester lisible dans le catalogue meme si personne n'a pense a overrider
+	 * 'toString()' pour l'exposer: se reposer sur 'toString()' rendait ces champs invisibles
+	 * silencieusement des qu'un dev oubliait l'override.
+	 */
+	private static String describeEnumConstants(Class<?> type) {
+		Field[] fields = Arrays.stream(type.getDeclaredFields())
+				.filter(f -> !f.isSynthetic() && !f.isEnumConstant())
+				.toArray(Field[]::new);
+		for (Field field : fields) {
+			field.setAccessible(true);
+		}
+
+		return Arrays.stream(type.getEnumConstants()).map(constant -> {
+			if (fields.length == 0) {
+				return ((Enum<?>) constant).name();
+			}
+			String details = Arrays.stream(fields).map(field -> {
+				try {
+					return field.getName() + "=" + field.get(constant);
+				} catch (IllegalAccessException e) {
+					throw new IllegalStateException("Impossible de lire le champ '" + field.getName()
+							+ "' de la constante enum '" + constant + "'.", e);
+				}
+			}).collect(Collectors.joining(", "));
+			return ((Enum<?>) constant).name() + " (" + details + ")";
+		}).collect(Collectors.joining(" | "));
 	}
 
 	public static String resolveValue(String field, WorkflowRegistry.Entry entry, boolean stripPlaceholders) {
