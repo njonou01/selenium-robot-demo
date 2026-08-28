@@ -324,8 +324,3 @@ Seuls les workflows complets (`fullXxxFlow`) sont pilotables depuis un scénario
 individuelles — c'est voulu, ça évite les scénarios cassés par un mauvais ordre d'étapes. Le
 retry par workflow peut se cumuler avec le retry TestNG au niveau du test — un vrai site en
 panne peut prendre plusieurs minutes avant qu'on abandonne.
-
-Le support Excel (types complexes, alias, chaînage) a tourné en conditions réelles avec un vrai
-navigateur, serveur de variable inclus — même scénario chaînage + alias que l'exemple JSON de la
-section 3, prouvé via `.xlsx` : compte bancaire ouvert, numéro extrait, transmis à `hr.full` via
-`${result:b.accountNumber}`, journalisé côté RH.

@@ -25,10 +25,6 @@ l'extension, avec :
   records typés — pas de `Map` générique) ;
 - alias de scénario optionnels, portée à un seul scénario, JSON et Excel.
 
-Chaînage et alias prouvés en conditions réelles (navigateur, serveur de variable réel), **dans
-les deux formats** : `banking.full` ouvre un vrai compte Parabank, extrait le vrai numéro, le
-transmet à `hr.full` via l'alias `b`→`banking.full` — identique en JSON et en `.xlsx`.
-
 **Catalogue auto-généré**, jamais tenu à la main : `WorkflowCatalogueGenerator` scanne les
 classes `*Workflow`, produit 4 formats de sortie (`sheets`/`blocks`/`json`/`matrix`), et reste
 lisible même en exécution packagée (repli `@Workflow(variables = {...})` quand la détection
