@@ -73,6 +73,14 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		COLUMN_EXTRACTORS.put("parameters", WorkflowCatalogueGenerator::describeParameters);
 	}
 
+	// Colonnes a texte potentiellement long (description libre, hint de parametre recursif -
+	// record dans record, enum dans tableau...): sans plafond, autoSizeColumn() peut etirer la
+	// colonne demesurement sur un cas charge plutot que de laisser le retour a la ligne faire
+	// son travail dans une largeur raisonnable.
+	private static final Set<String> WRAPPED_TEXT_FIELDS = Set.of("description", "variables", "parameters");
+	public static final int TEXT_COLUMN_MIN_WIDTH = 45 * 256;
+	public static final int TEXT_COLUMN_MAX_WIDTH = 90 * 256;
+
 	private static String describeVariables(WorkflowRegistry.Entry entry) {
 		List<WorkflowVariableScanner.VariableUsage> usages = WorkflowVariableScanner.scan(entry);
 		if (usages.isEmpty()) {
@@ -290,11 +298,17 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 
 		sheet.createFreezePane(0, 1);
 		for (int c = 0; c < headers.length; c++) {
-			sheet.autoSizeColumn(c);
+			sizeColumn(sheet, c, c == 2);
 		}
-		int minStructureWidth = 45 * 256;
-		if (sheet.getColumnWidth(2) < minStructureWidth) {
-			sheet.setColumnWidth(2, minStructureWidth);
+		for (int r = 1; r < row; r++) {
+			XSSFCell structureCell = getOrCreateRow(sheet, r).getCell(2);
+			if (structureCell != null) {
+				int columnWidthChars = Math.max(10, sheet.getColumnWidth(2) / 256);
+				int lines = countWrappedLines(structureCell.getStringCellValue(), columnWidthChars);
+				if (lines > 1) {
+					getOrCreateRow(sheet, r).setHeightInPoints(lines * sheet.getDefaultRowHeightInPoints());
+				}
+			}
 		}
 	}
 
@@ -419,9 +433,14 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			}
 
 			sheet.createFreezePane(0, 1);
-			for (int i = 0; i <= fields.size(); i++) {
-				sheet.autoSizeColumn(i);
-				sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 800);
+			sizeColumn(sheet, 0, false);
+			for (int i = 0; i < fields.size(); i++) {
+				sizeColumn(sheet, i + 1, WRAPPED_TEXT_FIELDS.contains(fields.get(i)));
+			}
+			// hauteur de ligne calculee APRES les largeurs finales - avant, autoFitRowHeight
+			// mesurerait contre une largeur de colonne pas encore definitive.
+			for (int r = 1; r < row; r++) {
+				autoFitRowHeight(getOrCreateRow(sheet, r), sheet, fields, 1);
 			}
 			addVariablesSheet(workbook, styles, allEntries);
 
@@ -528,14 +547,10 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 		}
 
 		for (int i = 0; i < fields.size(); i++) {
-			sheet.autoSizeColumn(startCol + i);
-			sheet.setColumnWidth(startCol + i, sheet.getColumnWidth(startCol + i) + 800);
-			if ("description".equals(fields.get(i)) || "variables".equals(fields.get(i))) {
-				int minWidth = 45 * 256;
-				if (sheet.getColumnWidth(startCol + i) < minWidth) {
-					sheet.setColumnWidth(startCol + i, minWidth);
-				}
-			}
+			sizeColumn(sheet, startCol + i, WRAPPED_TEXT_FIELDS.contains(fields.get(i)));
+		}
+		for (int i = 0; i < entries.size(); i++) {
+			autoFitRowHeight(getOrCreateRow(sheet, row + i), sheet, fields, startCol);
 		}
 
 		return row + entries.size();
@@ -544,6 +559,75 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 	private XSSFRow getOrCreateRow(XSSFSheet sheet, int rowIndex) {
 		XSSFRow row = sheet.getRow(rowIndex);
 		return row != null ? row : sheet.createRow(rowIndex);
+	}
+
+	// Limite dure d'Excel/POI ('XSSFSheet.setColumnWidth' leve IllegalArgumentException
+	// au-dela) - independante de TEXT_COLUMN_MAX_WIDTH (90 caracteres, notre propre plafond
+	// "lisible"). Sans ce filet, un contenu tres long (pas forcement une colonne 'wrappedText' -
+	// meme "code"/"class" pourraient theoriquement deborder) fait planter toute la generation du
+	// catalogue au lieu de juste produire une colonne large.
+	private static final int EXCEL_HARD_MAX_WIDTH = 255 * 256;
+
+	/**
+	 * Dimensionne une colonne apres ecriture des cellules: 'autoSizeColumn' + marge, puis
+	 * plafonnee entre TEXT_COLUMN_MIN_WIDTH et TEXT_COLUMN_MAX_WIDTH si c'est une colonne a
+	 * texte long (wrapText deja actif sur le style des cellules - une largeur plafonnee est ce
+	 * qui lui donne un espace fixe et raisonnable dans lequel se replier, plutot que de laisser
+	 * la colonne s'etirer sur un hint tres charge). Le resultat est toujours calcule avant tout
+	 * appel a 'setColumnWidth', jamais en 2 temps - un appel intermediaire avec une valeur pas
+	 * encore plafonnee peut a lui seul depasser EXCEL_HARD_MAX_WIDTH et lever une exception.
+	 */
+	public static void sizeColumn(XSSFSheet sheet, int columnIndex, boolean wrappedTextColumn) {
+		sheet.autoSizeColumn(columnIndex);
+		int width = Math.min(sheet.getColumnWidth(columnIndex) + 800, EXCEL_HARD_MAX_WIDTH);
+		if (wrappedTextColumn) {
+			width = Math.max(TEXT_COLUMN_MIN_WIDTH, Math.min(width, TEXT_COLUMN_MAX_WIDTH));
+		}
+		sheet.setColumnWidth(columnIndex, width);
+	}
+
+	/**
+	 * 'wrapText' seul ne garantit pas une hauteur de ligne lisible dans tous les lecteurs -
+	 * Excel recalcule a l'ouverture, mais pas systematiquement LibreOffice/Google Sheets a
+	 * l'import. Calcule explicitement le nombre de lignes necessaire (longueur du texte le plus
+	 * charge de la ligne / largeur finale de sa colonne, en caracteres) et fixe la hauteur en
+	 * consequence - doit tourner APRES que toutes les largeurs de colonnes de cette ligne soient
+	 * definitives.
+	 */
+	public static void autoFitRowHeight(XSSFRow row, XSSFSheet sheet, List<String> fields, int startCol) {
+		int maxLines = 1;
+		for (int i = 0; i < fields.size(); i++) {
+			if (!WRAPPED_TEXT_FIELDS.contains(fields.get(i))) {
+				continue;
+			}
+			XSSFCell cell = row.getCell(startCol + i);
+			if (cell == null) {
+				continue;
+			}
+			int columnWidthChars = Math.max(10, sheet.getColumnWidth(startCol + i) / 256);
+			maxLines = Math.max(maxLines, countWrappedLines(cell.getStringCellValue(), columnWidthChars));
+		}
+		if (maxLines > 1) {
+			row.setHeightInPoints(maxLines * sheet.getDefaultRowHeightInPoints());
+		}
+	}
+
+	/**
+	 * Nombre de lignes qu'occupera 'value' une fois affiche dans une colonne de
+	 * 'columnWidthChars' caracteres de large, avec retour a la ligne actif: compte les retours
+	 * a la ligne deja presents dans le texte (ex: JSON pretty-imprime, 'buildJsonExample') EN
+	 * PLUS du retour a la ligne automatique sur chaque segment trop long - additionner les 2
+	 * sans tenir compte des retours existants sous-estimerait la hauteur reellement necessaire.
+	 */
+	public static int countWrappedLines(String value, int columnWidthChars) {
+		if (value == null || value.isEmpty()) {
+			return 1;
+		}
+		int lines = 0;
+		for (String segment : value.split("\n", -1)) {
+			lines += Math.max(1, (int) Math.ceil((double) segment.length() / columnWidthChars));
+		}
+		return Math.max(1, lines);
 	}
 
 	private Styles buildStyles(XSSFWorkbook workbook) {
