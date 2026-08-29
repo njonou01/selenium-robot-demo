@@ -7,6 +7,7 @@ import java.io.OutputStreamWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
@@ -147,7 +148,7 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			String fields = Arrays.stream(type.getRecordComponents()).map(component -> {
 				String componentPath = javaPath + "." + component.getName();
 				String label = javaPathToBusiness.getOrDefault(componentPath, component.getName());
-				String nested = describeType(component.getType(), javaPathToBusiness, componentPath);
+				String nested = describeComponentType(component, javaPathToBusiness, componentPath);
 				return nested.isEmpty() ? label : label + " (" + nested + ")";
 			}).collect(Collectors.joining(", "));
 			return "record: " + fields;
@@ -159,6 +160,26 @@ public class WorkflowCatalogueGenerator extends SeleniumTestPlan {
 			return "format AAAA-MM-JJ";
 		}
 		return "";
+	}
+
+	/**
+	 * Comme 'describeType', mais pour un champ de record specifiquement: un 'RecordComponent'
+	 * expose 'getGenericType()', necessaire pour decrire une 'List&lt;T&gt;' (effacee en simple
+	 * 'List' via 'getType()' seul - meme limite que 'convertDataSetValue' avant sa correction).
+	 * Tolerant: un generique non resolvable (wildcard, type borne) degrade en "rien a afficher"
+	 * plutot que de faire planter toute la generation du catalogue pour un simple hint d'affichage.
+	 */
+	private static String describeComponentType(RecordComponent component, Map<String, String> javaPathToBusiness, String javaPath) {
+		Class<?> type = component.getType();
+		if (List.class.isAssignableFrom(type)) {
+			try {
+				Class<?> elementType = WorkflowVariableScanner.resolveListComponentType(component.getGenericType(), javaPath);
+				return "liste de " + describeElementType(elementType, javaPathToBusiness, javaPath + "[]");
+			} catch (IllegalStateException e) {
+				return "";
+			}
+		}
+		return describeType(type, javaPathToBusiness, javaPath);
 	}
 
 	/**

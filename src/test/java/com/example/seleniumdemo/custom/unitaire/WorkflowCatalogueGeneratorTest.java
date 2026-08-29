@@ -49,6 +49,9 @@ public class WorkflowCatalogueGeneratorTest {
 	public record Claim(String reference, Status status) {
 	}
 
+	public record Order(String reference, java.util.List<String> items) {
+	}
+
 	static class Fixture {
 		public void withEnum(Fruit fruit) {
 		}
@@ -68,6 +71,11 @@ public class WorkflowCatalogueGeneratorTest {
 		// enum imbriquee dans un record - le hint doit recurser et lister ses valeurs, pas
 		// juste dire "record: reference, status" sans dire ce que 'status' accepte.
 		public void withRecordContainingEnum(Claim claim) {
+		}
+
+		// List<T> en champ de record - meme bug corrige que dans le convertisseur
+		// (RecordComponent.getType() efface l'argument generique).
+		public void withRecordContainingList(Order order) {
 		}
 
 		public void withArray(String[] items) {
@@ -139,6 +147,19 @@ public class WorkflowCatalogueGeneratorTest {
 		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRecordContainingEnum", Claim.class));
 
 		Assert.assertEquals(hint, "record: reference, status (APPROVED | REJECTED)");
+	}
+
+	/**
+	 * Bug reel corrige, meme famille que le convertisseur: 'RecordComponent.getType()' efface
+	 * l'argument generique d'un champ 'List&lt;T&gt;' - sans passer par 'getGenericType()', le
+	 * hint se serait tu sur ce champ (pas de crash, juste "record: reference, items" sans dire
+	 * que c'est une liste de String).
+	 */
+	@Test
+	public void describeParameterHintRecursesIntoListFieldInsideRecord() throws Exception {
+		String hint = WorkflowCatalogueGenerator.describeParameterHint(firstParam("withRecordContainingList", Order.class));
+
+		Assert.assertEquals(hint, "record: reference, items (liste de String)");
 	}
 
 	@Test

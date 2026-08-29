@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -262,13 +263,23 @@ public final class WorkflowVariableScanner {
 	}
 
 	private static Class<?> resolveListComponentType(Parameter parameter) {
-		if (parameter.getParameterizedType() instanceof ParameterizedType parameterizedType
+		return resolveListComponentType(parameter.getParameterizedType(), parameter.getName());
+	}
+
+	/**
+	 * Partagee entre le point d'entree (Parameter.getParameterizedType()) et un champ record de
+	 * type List (RecordComponent.getGenericType()) - les deux exposent un java.lang.reflect.Type
+	 * porteur de l'argument generique, meme si l'effacement de type rend Class&lt;?&gt; seul
+	 * insuffisant dans les deux cas.
+	 */
+	public static Class<?> resolveListComponentType(Type genericType, String javaPath) {
+		if (genericType instanceof ParameterizedType parameterizedType
 				&& parameterizedType.getActualTypeArguments().length == 1
 				&& parameterizedType.getActualTypeArguments()[0] instanceof Class<?> componentType) {
 			return componentType;
 		}
 		throw new IllegalStateException("Impossible de determiner le type des elements de la List '"
-				+ parameter.getName() + "' (type generique non resolu - eviter les wildcards/types bornes).");
+				+ javaPath + "' (type generique non resolu - eviter les wildcards/types bornes).");
 	}
 
 	/**
@@ -276,8 +287,8 @@ public final class WorkflowVariableScanner {
 	 * cadeau de Jackson quand le JSON source a un objet/tableau imbrique) vers le type reel
 	 * attendu. Supporte String, enum (Enum.valueOf), int/long/double/boolean (primitifs et
 	 * wrappers), LocalDate (format ISO AAAA-MM-JJ), tableau (T[]) et record (reconstruit champ par
-	 * champ, recursivement - un champ record peut lui-meme etre un enum, un tableau ou un autre
-	 * record). 'javaPathToBusiness'/'javaPath' permettent de nommer les champs internes d'un
+	 * champ, recursivement - un champ record peut lui-meme etre un enum, un tableau, une List&lt;T&gt;
+	 * ou un autre record). 'javaPathToBusiness'/'javaPath' permettent de nommer les champs internes d'un
 	 * record via '@Workflow(params = {"nomMetier=cheminJava.champ"})', avec repli sur le nom Java
 	 * brut si rien n'est mappe pour ce chemin precis.
 	 */
@@ -301,7 +312,15 @@ public final class WorkflowVariableScanner {
 					throw new IllegalStateException("Champ '" + lookupKey + "' manquant pour le record '"
 							+ targetType.getSimpleName() + "' (champs disponibles: " + fields.keySet() + ").");
 				}
-				componentValues[i] = convertDataSetValue(fieldRaw, componentTypes[i], javaPathToBusiness, componentPath);
+				// La version fine (Class<?>) ne connait plus l'argument generique d'un champ
+				// List (efface a l'execution) - il faut repasser par le Type du RecordComponent
+				// pour le retrouver, comme le fait deja le point d'entree via Parameter.
+				if (List.class.isAssignableFrom(componentTypes[i])) {
+					Class<?> listComponentType = resolveListComponentType(components[i].getGenericType(), componentPath);
+					componentValues[i] = convertList(fieldRaw, listComponentType, javaPathToBusiness, componentPath);
+				} else {
+					componentValues[i] = convertDataSetValue(fieldRaw, componentTypes[i], javaPathToBusiness, componentPath);
+				}
 			}
 			try {
 				Constructor<?> canonicalConstructor = targetType.getDeclaredConstructor(componentTypes);

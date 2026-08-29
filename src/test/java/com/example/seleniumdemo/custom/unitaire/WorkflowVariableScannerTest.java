@@ -22,6 +22,12 @@ public class WorkflowVariableScannerTest {
 	public record Address(String street, String city) {
 	}
 
+	public record Order(String reference, List<String> items) {
+	}
+
+	public record Trip(String reference, List<Address> stops) {
+	}
+
 	/**
 	 * Fixture locale au test: expose un parametre de chaque famille de type supportee par
 	 * 'convertDataSetValue', pour verifier la conversion sans dependre d'un vrai Workflow
@@ -36,6 +42,12 @@ public class WorkflowVariableScannerTest {
 		}
 
 		public void withRecord(Address address) {
+		}
+
+		public void withRecordContainingList(Order order) {
+		}
+
+		public void withRecordContainingListOfRecords(Trip trip) {
 		}
 
 		public void withArray(String[] items) {
@@ -119,6 +131,36 @@ public class WorkflowVariableScannerTest {
 		Parameter param = method("withRecord", Address.class).getParameters()[0];
 
 		WorkflowVariableScanner.convertDataSetValue(Map.of("street", "12 rue des Lilas"), param);
+	}
+
+	/**
+	 * Bug reel corrige: 'List&lt;T&gt;' en champ de record echouait avant avec
+	 * "Type de parametre 'List' non supporte par 'dataSet'" - RecordComponent.getType() efface
+	 * l'argument generique, contrairement a Parameter.getParameterizedType() deja gere au point
+	 * d'entree. Marchait deja pour un parametre List directement, jamais pour un champ imbrique.
+	 */
+	@Test
+	public void convertsListFieldInsideARecord() throws Exception {
+		Parameter param = method("withRecordContainingList", Order.class).getParameters()[0];
+		Map<String, Object> raw = Map.of("reference", "CMD-1", "items", List.of("A", "B", "C"));
+
+		Object result = WorkflowVariableScanner.convertDataSetValue(raw, param);
+
+		Assert.assertEquals(result, new Order("CMD-1", List.of("A", "B", "C")));
+	}
+
+	@Test
+	public void convertsListOfRecordsFieldInsideARecord() throws Exception {
+		Parameter param = method("withRecordContainingListOfRecords", Trip.class).getParameters()[0];
+		Map<String, Object> raw = Map.of("reference", "TRIP-1", "stops", List.of(
+				Map.of("street", "12 rue des Lilas", "city", "Lyon"),
+				Map.of("street", "1 avenue Test", "city", "Paris")));
+
+		Object result = WorkflowVariableScanner.convertDataSetValue(raw, param);
+
+		Assert.assertEquals(result, new Trip("TRIP-1", List.of(
+				new Address("12 rue des Lilas", "Lyon"),
+				new Address("1 avenue Test", "Paris"))));
 	}
 
 	/**
