@@ -10,11 +10,9 @@ qui essaie de parler aux deux à la fois finit par être inutile aux deux.
 
 La règle qui tient tout le reste : une information que le code peut produire lui-même (liste des
 workflows, leurs paramètres, les variables serveur qu'ils lisent) ne doit **jamais** être
-recopiée à la main dans une doc. Le `WorkflowCatalogueGenerator` existe pour ça. Une ancienne
-version de `README-workflow-scenarios.md` listait les codes de workflow à la main — elle a fini
-par mentir dès le premier workflow ajouté sans qu'on pense à la mettre à jour. Ce n'est pas une
-règle abstraite, c'est un problème réellement arrivé dans ce projet (voir
-[`architecture.md`](architecture.md)).
+recopiée à la main dans une doc — ça diverge du code réel dès le premier changement qu'on oublie
+d'y répercuter. Le `WorkflowCatalogueGenerator` existe pour ça (voir
+[`architecture.md`](architecture.md) pour le principe complet).
 
 Cette page complète [`README-workflow-scenarios.md`](../../README-workflow-scenarios.md) (le
 format des scénarios, en détail) plutôt que de le redire : elle répond à "pourquoi ce moteur

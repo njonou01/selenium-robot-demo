@@ -36,9 +36,8 @@ workflow peut recevoir une donnée métier commune (un profil, un jeu de paramè
 l'utiliser pour enchaîner les pages. Une page reçoit un sélecteur ou une valeur, elle ne va pas
 chercher elle-même sa configuration. Et le catalogue peut lister les codes de workflow, mais ne
 doit jamais devenir une source de vérité tenue à la main si le code sait déjà produire cette
-information tout seul — une ancienne version de `README-workflow-scenarios.md` listait les codes
-à la main, et elle a fini par mentir dès le premier workflow ajouté sans qu'on pense à la mettre
-à jour.
+information tout seul — une liste de codes recopiée à la main dans une doc diverge du code réel
+dès le premier workflow ajouté sans qu'on pense à la mettre à jour.
 
 ## Diagramme associé
 

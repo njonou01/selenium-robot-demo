@@ -45,6 +45,5 @@ suite), `fonts.part.vm` (police Inter embarquée en base64 — le rapport reste 
 en forme même ouvert sans connexion internet ou hors de son dossier de sortie standard).
 
 Techniquement, c'est `CustomReportListener` qui bascule le classloader du thread courant vers un
-dossier temporaire contenant ces 3 gabarits, avant que le framework ne génère le rapport — voir
-[`jenkins-jar-fixes.md`](jenkins-jar-fixes.md) pour l'incident qui a façonné cette implémentation
-(et pourquoi elle marche identiquement en local et en jar packagé).
+dossier temporaire contenant ces 3 gabarits, avant que le framework ne génère le rapport — marche
+identiquement en local et en exécution packagée (jar).

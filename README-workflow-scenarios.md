@@ -52,7 +52,7 @@ cellule, tout ça mérite mieux qu'une ligne.
 
 Un détail qui a son importance : si un scénario du fichier est mal formé, seul celui-là échoue à
 l'exécution, avec un message qui dit lequel et pourquoi. Les autres continuent de tourner
-normalement — ce n'était pas le cas avant, une seule faute de frappe suffisait à tout bloquer.
+normalement.
 
 Autre chose utile : tout est vérifié avant même d'ouvrir un navigateur. Workflows connus, données
 présentes, bon type — une erreur de configuration remonte en quelques secondes plutôt qu'après
@@ -60,8 +60,8 @@ plusieurs minutes d'exécution Selenium.
 
 ### Les codes de workflow disponibles
 
-On ne les liste pas ici — c'est justement ce qui a fait pourrir l'ancienne version de ce document.
-La liste à jour, avec la description et les paramètres attendus de chaque workflow, est générée
+On ne les liste pas ici — une liste tenue à la main dans une doc finit toujours par diverger du
+code réel. La liste à jour, avec la description et les paramètres attendus de chaque workflow, est générée
 automatiquement (test `Documentation` / `WorkflowCatalogueGenerator`) et uploadée sur le serveur
 de variable à chaque exécution de la suite. Un code inconnu dans `steps` fait échouer le scénario
 concerné avec la liste des codes valides dans le message.
@@ -282,8 +282,7 @@ récursivement.
 
 `WorkflowCatalogueGenerator` scanne toutes les classes `*Workflow` du package `workflows` et
 génère le catalogue (code, description, classe, paramètres attendus) qu'il uploade sur le
-serveur à chaque run — personne n'a besoin de le tenir à jour à la main, et c'est tant mieux vu
-que l'ancienne doc montre ce que ça donne quand on essaie.
+serveur à chaque run — personne n'a besoin de le tenir à jour à la main.
 
 `PageDetector` sert à distinguer plusieurs pages possibles après une action (succès ou erreur,
 par exemple). Il attend qu'une seule candidate reste visible sur plusieurs contrôles d'affilée

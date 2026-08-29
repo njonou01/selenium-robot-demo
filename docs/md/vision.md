@@ -36,19 +36,17 @@ seulement), extraction de sous-arbre (`getSubtree`).
 
 ## Les bonnes choses
 
-**Aucune deuxième source de vérité tenue à la main.** Le catalogue en est la preuve vivante — un
-ancien `README-workflow-scenarios.md` listait les codes à la main et a fini par mentir dès le
-premier workflow ajouté sans y penser. Le projet a tiré la leçon et l'a écrite noir sur blanc
-dans `architecture.md`.
+**Aucune deuxième source de vérité tenue à la main.** Le catalogue en est la preuve vivante —
+voir [`architecture.md`](architecture.md) pour le principe.
 
 **Les erreurs métier disent quoi et où**, jamais une stack trace brute jetée au visage d'un
 rédacteur de scénario non-dev : "le workflow 'hr.full' attend le parametre 'employee', absent
 du dataSet" plutôt qu'une `NullPointerException` à la ligne 47.
 
-**Le code documente le pourquoi, jamais le quoi.** Vérifié classe par classe cette session :
-zéro commentaire qui reformule ce que le code fait déjà, chaque commentaire existant justifie
-un choix non évident (pourquoi `Lazy`, pourquoi un classloader inversé, pourquoi la validation
-`${result:...}` se fait à deux endroits différents).
+**Le code documente le pourquoi, jamais le quoi.** Zéro commentaire qui reformule ce que le code
+fait déjà ; chaque commentaire existant justifie un choix non évident (pourquoi `Lazy`, pourquoi
+un classloader inversé, pourquoi la validation `${result:...}` se fait à deux endroits
+différents).
 
 ## Ce qui manque
 
@@ -65,21 +63,13 @@ exactement ce genre de croisement pour les variables serveur).
 
 **Le serveur de variable est fragile à froid.** Aucune application/version/environnement ne
 s'auto-enregistre : chaque nouvel environnement de dev (ou de CI) demande une initialisation
-manuelle en base avant le premier run — vécu concrètement cette session, deux allers-retours
-pour trouver la bonne version ("1.0" résolu à l'exécution, pas "1.0.0-SNAPSHOT" comme on
-l'attendrait du `pom.xml`).
+manuelle en base avant le premier run. Piège à connaître : la version applicative résolue à
+l'exécution est la version courte ("1.0"), pas la valeur complète du `pom.xml`
+("1.0.0-SNAPSHOT") — l'enregistrement côté serveur doit correspondre exactement.
 
 **Aucune détection de flakiness.** Le moteur ne fait aujourd'hui aucune différence entre "ce
-site est instable" et "on a cassé quelque chose" — chaque échec est traité pareil. Vécu
-concrètement cette session avec un faux positif : `ParabankPage.requestLoan()`/`transferFunds()`
-échouaient à chaque run, attribué d'abord (à tort) à une instabilité du site Parabank, puis à
-une règle métier (fonds insuffisants, aussi à tort). La vraie cause : `ByC.partialText(...)`
-générait un `contains(text(),...)` XPath qui ne trouvait jamais la confirmation, alors que la
-page était correcte à chaque fois (confirmé par capture d'écran). Corrigé en passant à
-`assertTextPresentInPage` (texte réellement rendu, pas de XPath sur les nœuds texte). Sans
-prendre le temps de vérifier avec un vrai screenshot plutôt que de deviner, ce bug réel serait
-resté classé "site capricieux" indéfiniment — exactement le genre d'erreur qu'une détection de
-flakiness bien pensée doit éviter de masquer.
+site est instable" et "on a cassé quelque chose" — chaque échec est traité pareil, qu'il vienne
+d'une vraie régression ou d'un aléa du site testé.
 
 **Pas d'éditeur visuel.** Composer un scénario demande de connaître le format JSON/Excel à la
 main — pas de formulaire généré depuis le catalogue qui garantirait les bons types sans
