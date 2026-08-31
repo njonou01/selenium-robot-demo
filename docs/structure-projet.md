@@ -1,11 +1,11 @@
 # Structure du projet
 
 ```text
-seleniumdemo/
+<projet>/
 └── src/
     └── test/
         └── java/
-            └── com/example/seleniumdemo/
+            └── <package-interne>/
                 ├── tests/
                 ├── workflows/
                 ├── webpage/

@@ -11,7 +11,7 @@ Pilotent l'exécution et fournissent les données aux workflows : quels scénari
 workflows pour éviter de dupliquer la même donnée partout. Les tests les lisent pour orchestrer,
 les workflows pour transformer la donnée — les pages web n'y touchent jamais directement. Le
 détail complet (format, exemples, override par workflow) est dans
-`README-workflow-scenarios.md` à la racine du projet.
+[`README-workflow-scenarios.md`](README-workflow-scenarios.md), dans `docs/`.
 
 ## Catalogue des codes
 

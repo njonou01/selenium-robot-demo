@@ -1,6 +1,6 @@
 # Conventions
 
-Ce dossier regroupe les règles pratiques du projet `seleniumdemo`.
+Ce dossier regroupe les règles pratiques du projet `<projet>`.
 
 ## Conventions projet
 

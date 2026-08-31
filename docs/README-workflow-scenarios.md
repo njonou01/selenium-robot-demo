@@ -299,23 +299,26 @@ et le type de retour du workflow référencé — `WorkflowVariableScanner.valid
 
 ### Ajouter un nouveau workflow pilotable
 
-Il suffit d'ajouter `code = "monsite.full"` sur l'annotation `@Workflow` de la méthode
-`fullXxxFlow` concernée. Si elle prend des paramètres, ils sont résolus automatiquement depuis le
-`dataSet` (nom du paramètre Java par défaut, ou nom métier via `params = {"nomMetier=nomJava"}`).
-Si le site a besoin de données propres indépendantes du scénario, on crée une variable
-`monsite.params` et on la lit via `JsonParams.load(...)` ou `MapParams.load(...)`. Rien d'autre à
-changer : la classe est déjà repérée par scan du package `workflows`, et le catalogue se met à
-jour tout seul au run suivant.
+Il suffit d'ajouter `code = "xxx.full"` sur l'annotation `@Workflow` de la méthode `fullXxxFlow`
+concernée — par exemple `code = "missionauto.full"` sur `MissionAutoWorkflow.fullMissionAutoFlow()`.
+Si elle prend des paramètres, ils sont résolus automatiquement depuis le `dataSet` (nom du
+paramètre Java par défaut, ou nom métier via `params = {"nomMetier=nomJava"}`). Si le site a
+besoin de données propres indépendantes du scénario, on crée une variable `xxx.params` (ex :
+`missionauto.params`) et on la lit via `JsonParams.load(...)` ou `MapParams.load(...)`. Rien
+d'autre à changer : la classe est déjà repérée par scan du package `workflows`, et le catalogue
+se met à jour tout seul au run suivant.
 
 Pour qu'un workflow puisse être chaîné (section 3), sa méthode `fullXxxFlow` renvoie un record
-qui implémente `WorkflowResult` (`com.example.seleniumdemo.custom.reporting.WorkflowResult`,
+qui implémente `WorkflowResult` (`<package-interne>.custom.reporting.WorkflowResult`,
 marqueur pur) au lieu de `void` — voir `BankingResult`/`BankingWorkflow.fullBankingFlow()` pour
-un exemple réel. Un workflow qui n'a rien à transmettre reste en `void`, rien à ajouter.
+un exemple réel dans ce dépôt (`MissionAutoResult`/`MissionAutoWorkflow.fullMissionAutoFlow()`
+suivrait exactement le même patron). Un workflow qui n'a rien à transmettre reste en `void`, rien
+à ajouter.
 
 Si l'exécution en jar packagé (Jenkins) doit garder la colonne "Variables serveur" du catalogue
-renseignée pour ce workflow, ajouter `@Workflow(variables = {"monsite.params"})` — sinon la
-détection automatique (qui relit le source `.java`, absent en jar) laisse la colonne vide sans
-que rien ne plante.
+renseignée pour ce workflow, ajouter `@Workflow(variables = {"xxx.params"})` (ex :
+`{"missionauto.params"}`) — sinon la détection automatique (qui relit le source `.java`, absent
+en jar) laisse la colonne vide sans que rien ne plante.
 
 ### Ce qui ne marche pas encore / limites connues
 

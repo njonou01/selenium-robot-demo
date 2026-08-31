@@ -1,15 +1,54 @@
-# Documentation Selenium Demo
+# Documentation `<projet>`
 
-## Pages utiles
+> **Placeholders.** `<projet>` et `<package-interne>` apparaissent dans plusieurs pages à la
+> place du vrai nom de projet et du vrai package Java — à remplacer par les valeurs réelles avant
+> usage. C'est volontaire, pas un oubli.
 
-- [Structure du projet](md/structure-projet.md)
-- [Vue d’ensemble](md/architecture.md)
-- [Conventions](md/conventions/README.md)
-- [Framework SeleniumRobot](md/framework.md)
-- [Support du projet](md/support.md)
-- [Scénariser avec JSON ou Excel](md/conventions/scenario.md)
-- [Guide du scénariseur (pourquoi, objectif, paramètres testng.xml)](md/guide-scenariseur.md)
-- [Vision — état des lieux et pistes](md/vision.md)
+## Par où commencer
+
+Deux publics, deux points d'entrée. Inutile de tout lire — choisis ta ligne selon ce que tu dois
+faire.
+
+**Je compose ou j'adapte un scénario de test, je ne touche pas au code Java :**
+
+1. [`guide-scenariseur.md`](guide-scenariseur.md) — "quel circuit choisir", vue d'ensemble du
+   moteur, paramètres de lancement.
+2. [`conventions/scenario.md`](conventions/scenario.md) — où sont les scénarios, quel test
+   lancer.
+3. [`README-workflow-scenarios.md`](README-workflow-scenarios.md) — format complet JSON/Excel,
+   chaînage de résultats, alias.
+
+**J'ajoute ou je modifie du code (page, workflow, test) :**
+
+1. [`architecture.md`](architecture.md) — les couches et leur rôle.
+2. [`structure-projet.md`](structure-projet.md) — où mettre quelle classe.
+3. [`CONTRIBUTING.md`](CONTRIBUTING.md) — règles concrètes d'écriture (PageObject, Workflow,
+   nommage, ce qu'on n'utilise pas et pourquoi).
+4. [`REGLES_EQUIPE.md`](REGLES_EQUIPE.md) — nommage déterministe des classes (Page, Workflow,
+   Test), règle de la page de synthèse en fin de workflow complet.
+5. [`conventions/README.md`](conventions/README.md) — conventions détaillées par brique
+   (page, workflow, test, params).
+6. [`framework.md`](framework.md) — ce qui vient de SeleniumRobot, pas du projet.
+
+**Je veux l'état des lieux, ce qui est solide, ce qui manque :**
+
+- [`vision.md`](vision.md) — pas "comment ça marche", mais "où on en est".
+
+## Toutes les pages
+
+| Page | Public | Contenu |
+|---|---|---|
+| [`guide-scenariseur.md`](guide-scenariseur.md) | Non-dev + dev | Pourquoi le scénariseur existe, quel circuit choisir, paramètres testng.xml |
+| [`conventions/scenario.md`](conventions/scenario.md) | Non-dev | Où sont les scénarios, quel test lancer |
+| [`README-workflow-scenarios.md`](README-workflow-scenarios.md) | Non-dev + dev | Format complet des scénarios (JSON, Excel, alias, chaînage) |
+| [`architecture.md`](architecture.md) | Dev | Vue d'ensemble des couches |
+| [`structure-projet.md`](structure-projet.md) | Dev | Arborescence, où va une nouvelle classe |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Dev | Règles d'écriture concrètes |
+| [`REGLES_EQUIPE.md`](REGLES_EQUIPE.md) | Dev | Nommage déterministe (Page/Workflow/Test), règle de la page de synthèse |
+| [`conventions/README.md`](conventions/README.md) | Dev | Index des conventions (page, workflow, test, params) |
+| [`framework.md`](framework.md) | Dev | Ce qui appartient à SeleniumRobot |
+| [`support.md`](support.md) | Dev | Briques transverses (`custom/`), reporting, diagnostic |
+| [`vision.md`](vision.md) | Décideur / dev | État des lieux, ce qui manque, pistes non commencées |
 
 ## Schémas
 

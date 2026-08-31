@@ -50,23 +50,6 @@ différents).
 
 ## Ce qui manque
 
-**`JsonParams`/`MapParams` ont divergé entre `gmfindem` (le POC) et `seleniumdemo` (ce dépôt).**
-La version `seleniumdemo` est plus riche (`getFuzzy`, `getSubtree`, recherche par suffixe
-`$.`) — jamais réconciliées, jamais décidé laquelle doit devenir la référence commune si les
-deux projets doivent un jour reconverger.
-
-**Pas de rapport de couverture catalogue ↔ scénarios.** Le catalogue liste tous les workflows
-codés ; rien ne dit lesquels ne sont référencés par aucun scénario actif dans
-`workflow.scenarios`. Un workflow codé, jamais branché, reste invisible sans grep manuel — alors
-que le mécanisme pour le détecter existe déjà (même pattern que `aggregateVariables`, qui fait
-exactement ce genre de croisement pour les variables serveur).
-
-**Le serveur de variable est fragile à froid.** Aucune application/version/environnement ne
-s'auto-enregistre : chaque nouvel environnement de dev (ou de CI) demande une initialisation
-manuelle en base avant le premier run. Piège à connaître : la version applicative résolue à
-l'exécution est la version courte ("1.0"), pas la valeur complète du `pom.xml`
-("1.0.0-SNAPSHOT") — l'enregistrement côté serveur doit correspondre exactement.
-
 **Aucune détection de flakiness.** Le moteur ne fait aujourd'hui aucune différence entre "ce
 site est instable" et "on a cassé quelque chose" — chaque échec est traité pareil, qu'il vienne
 d'une vraie régression ou d'un aléa du site testé.
@@ -82,11 +65,9 @@ prendre plusieurs minutes avant que le test abandonne — connu, documenté, jam
 
 Discutées mais pas construites, par ordre de coût croissant :
 
-1. **Coverage report catalogue ↔ scénarios** — le plus proche d'être prêt à spécifier, pattern
-   déjà existant dans le code à réutiliser.
-2. **Détection de flakiness** — historique d'exécution par scénario, distinction site-instable
+1. **Détection de flakiness** — historique d'exécution par scénario, distinction site-instable
    vs régression réelle.
-3. **Score de santé par scénario** — combinaison stabilité historique + fraîcheur des données +
-   couverture, affiché dans le rapport.
-4. **Éditeur visuel de scénario** — le plus gros chantier, celui qui changerait le plus la vie
+2. **Score de santé par scénario** — combinaison stabilité historique + fraîcheur des données,
+   affiché dans le rapport.
+3. **Éditeur visuel de scénario** — le plus gros chantier, celui qui changerait le plus la vie
    d'un rédacteur non-dev, mais qui demande une vraie interface, pas juste du code serveur.

@@ -1,6 +1,6 @@
 # Écrire une page SeleniumRobot
 
-Conventions projet pour écrire une page `seleniumdemo`. Les détails techniques du framework
+Conventions projet pour écrire une page `<projet>`. Les détails techniques du framework
 (éléments, sélecteurs, assertions) sont documentés à part dans [`../framework.md`](../framework.md).
 
 ## Nommer la page

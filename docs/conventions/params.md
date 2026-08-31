@@ -13,7 +13,7 @@ Params (interface)
     └── MapParams   → source: texte plat "cle=valeur;cle=valeur" sur une variable serveur
 ```
 
-Package: `com.example.seleniumdemo.custom.testdata`.
+Package: `<package-interne>.custom.testdata`.
 
 ## Interface `Params`
 

@@ -1,4 +1,4 @@
-# Règles de code — seleniumdemo
+# Règles de code — <projet>
 
 Guide pour écrire un nouveau workflow/test dans ce projet. Basé sur les décisions prises et
 justifiées au fil du projet — pas des préférences arbitraires.
@@ -50,15 +50,16 @@ pas "fait des assertions".
 - Interpolation `${nom}` dans le `name` : le nom doit correspondre exactement à un paramètre de
   la méthode.
 - Une méthode `fullXxxFlow()` avec `code = "xxx.full"` si le workflow doit être pilotable depuis
-  le serveur de variable (`workflow.scenarios`) — voir `README-workflow-scenarios.md`.
+  le serveur de variable (`workflow.scenarios`) — voir `README-workflow-scenarios.md`. Exemple :
+  `MissionAutoWorkflow.fullMissionAutoFlow()`, `code = "missionauto.full"`.
 
 ## Données et identifiants
 
 - **Jamais de mot de passe/identifiant en dur dans le code.** Toujours `PageObject.param("cle")`.
-- Données métier structurées (montants, noms, adresses...) → variable serveur `xxx.params`,
-  chargée via `JsonParams.load("xxx.params")` (JSON imbriqué, fichier uploadé) ou
-  `MapParams.load("xxx.params")` (texte plat `cle=valeur`, variable inline) — pas les deux pour
-  la même variable, choisir un format et s'y tenir par site.
+- Données métier structurées (montants d'indemnisation, sinistres, adresses...) → variable
+  serveur `xxx.params` (ex : `missionauto.params`), chargée via `JsonParams.load("xxx.params")`
+  (JSON imbriqué, fichier uploadé) ou `MapParams.load("xxx.params")` (texte plat `cle=valeur`,
+  variable inline) — pas les deux pour la même variable, choisir un format et s'y tenir par site.
 
 ## Nommage
 

@@ -6,14 +6,14 @@ touchent jamais directement aux pages.
 
 Ce document couvre le format des scénarios. Pour le détail complet (types de données, override
 par workflow, isolation des erreurs, chaînage de résultats entre workflows, alias de scénario),
-voir `README-workflow-scenarios.md` à la racine du projet.
+voir [`README-workflow-scenarios.md`](../README-workflow-scenarios.md), dans `docs/`.
 
 ## Quel test lancer
 
 Le scénario piloté par variable passe par `ServerDrivenScenarioTest`
-(`com.example.seleniumdemo.custom.tests`). Pour ne lancer que ce mode, utiliser le suite
-`data/seleniumdemo/testng/seleniumdemo-vds-only.xml`. Le suite principal
-(`seleniumdemo.xml`) lance aussi les autres tests du projet.
+(`<package-interne>.custom.tests`). Pour ne lancer que ce mode, utiliser le suite
+`data/<projet>/testng/<projet>-vds-only.xml`. Le suite principal
+(`<projet>.xml`) lance aussi les autres tests du projet.
 
 ## Où sont les scénarios
 
